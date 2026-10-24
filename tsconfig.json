@@ -21,7 +21,8 @@
     "types": ["node", "jest"],
     "paths": {
       "@employee/*": ["src/employee/*"],
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "@job/*": ["src/job/*"]
     }
   }
 }
