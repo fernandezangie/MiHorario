@@ -1,4 +1,4 @@
 export class CreateEmployeeDto {
-  name: string;
+  code: string;
   email: string;
 }

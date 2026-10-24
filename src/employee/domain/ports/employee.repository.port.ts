@@ -1,8 +1,8 @@
 import { EmployeeEntity } from '@employee/domain/model/entities/employee.entity';
 
-export interface IEmployeeRepository {
-  save(employee: EmployeeEntity): Promise<EmployeeEntity>;
+export interface EmployeeRepositoryPort {
+  save(employee: EmployeeEntity): Promise<void>;
+  findById(id: string): Promise<EmployeeEntity | null>;
   findByEmail(email: string): Promise<EmployeeEntity | null>;
+  findAll(): Promise<EmployeeEntity[]>;
 }
-
-export const IEmployeeRepository = Symbol('IEmployeeRepository');

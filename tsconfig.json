@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
@@ -22,7 +21,8 @@
     "paths": {
       "@employee/*": ["src/employee/*"],
       "@shared/*": ["src/shared/*"],
-      "@job/*": ["src/job/*"]
+      "@job/*": ["src/job/*"],
+      "@shift/*": ["src/shift/*"]
     }
   }
 }

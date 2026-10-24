@@ -1,21 +1,22 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { IJobRepository } from '@job/domain/ports/job.repository.port';
-import { JobEntity } from '@job/domain/model/entities/job.entity';
+import { JobRepositoryPort } from '@job/domain/ports/job.repository.port';
 import { CreateJobDto } from '@job/application/dtos/create-job.dto';
+import { JobEntity } from '@job/domain/model/entities/job.entity';
 
 @Injectable()
 export class CreateJobUseCase {
   constructor(
-    @Inject(IJobRepository)
-    private readonly jobRepository: IJobRepository,
+    @Inject('JobRepositoryPort')
+    private readonly jobRepository: JobRepositoryPort,
   ) {}
 
-  async execute(dto: CreateJobDto): Promise<JobEntity> {
+  async execute(dto: CreateJobDto): Promise<void> {
     const job = new JobEntity(
       Date.now().toString(),
       dto.title,
       dto.description,
     );
-    return await this.jobRepository.save(job);
+
+    await this.jobRepository.save(job);
   }
 }
