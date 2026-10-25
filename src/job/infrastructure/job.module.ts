@@ -1,22 +1,22 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { JobController } from './controllers/job.controller';
+import { JobOrmEntity } from './persistence/typeorm/job.orm-entity';
+import { JobTypeOrmRepository } from './persistence/typeorm/job-typeorm.repository';
 import { CreateJobUseCase } from '@job/application/use-cases/create-job.use-case';
-import { FindJobByIdUseCase } from '@job/application/use-cases/find-job-by-id.use-case';
 import { ListJobsUseCase } from '@job/application/use-cases/list-jobs.use-case';
-import { UpdateJobUseCase } from '@job/application/use-cases/update-job.use-case';
-import { JobInMemoryRepository } from './persistence/job-in-memory.repository';
 
 @Module({
+  imports: [TypeOrmModule.forFeature([JobOrmEntity])],
   controllers: [JobController],
   providers: [
     CreateJobUseCase,
-    FindJobByIdUseCase,
     ListJobsUseCase,
-    UpdateJobUseCase,
     {
       provide: 'JobRepositoryPort',
-      useClass: JobInMemoryRepository,
+      useClass: JobTypeOrmRepository,
     },
   ],
+  exports: [CreateJobUseCase, ListJobsUseCase],
 })
 export class JobModule {}

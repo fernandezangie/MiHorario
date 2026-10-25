@@ -22,7 +22,9 @@
       "@employee/*": ["src/employee/*"],
       "@shared/*": ["src/shared/*"],
       "@job/*": ["src/job/*"],
-      "@shift/*": ["src/shift/*"]
+      "@shift/*": ["src/shift/*"],
+      "@restriction/*": ["src/restriction/*"],
+      "@zone/*": ["src/zone/*"]
     }
   }
 }

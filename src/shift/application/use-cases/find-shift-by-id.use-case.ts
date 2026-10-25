@@ -9,11 +9,7 @@ export class FindShiftByIdUseCase {
     private readonly shiftRepository: ShiftRepositoryPort,
   ) {}
 
-  async execute(id: string): Promise<ShiftEntity> {
-    const shift = await this.shiftRepository.findById(id);
-    if (!shift) {
-      throw new Error('El turno no fue encontrado');
-    }
-    return shift;
+  async execute(id: string): Promise<ShiftEntity | null> {
+    return await this.shiftRepository.findById(id);
   }
 }
