@@ -12,21 +12,27 @@ export class EmployeeTypeOrmRepository implements EmployeeRepositoryPort {
     private readonly ormRepository: Repository<EmployeeOrmEntity>,
   ) {}
 
+  private extractValue(prop: any): any {
+    if (prop === null || prop === undefined) return prop;
+    if (typeof prop.getValue === 'function') return prop.getValue();
+    if (typeof prop.value !== 'undefined') return prop.value;
+    return prop;
+  }
+
   async save(employee: EmployeeEntity): Promise<void> {
     const emp = employee as any;
     const ormEntity = new EmployeeOrmEntity();
 
-    // Extrae el valor primitivo ya sea si es un objeto con .value o un string directo
-    ormEntity.id = emp.id?.value ?? emp.id;
-    ormEntity.name = emp.name?.value ?? emp.name;
-    ormEntity.email = emp.email?.value ?? emp.email;
-    ormEntity.jobId = emp.jobId?.value ?? emp.jobId;
+    ormEntity.id = this.extractValue(emp.id);
+    ormEntity.name = this.extractValue(emp.name);
+    ormEntity.email = this.extractValue(emp.email);
+    ormEntity.jobId = this.extractValue(emp.jobId);
 
     await this.ormRepository.save(ormEntity);
   }
 
   async findById(id: any): Promise<EmployeeEntity | null> {
-    const rawId = typeof id === 'object' && id !== null && 'value' in id ? id.value : id;
+    const rawId = this.extractValue(id);
     const found = await this.ormRepository.findOne({ where: { id: rawId } });
     if (!found) return null;
 
@@ -34,7 +40,7 @@ export class EmployeeTypeOrmRepository implements EmployeeRepositoryPort {
   }
 
   async findByEmail(email: any): Promise<EmployeeEntity | null> {
-    const rawEmail = typeof email === 'object' && email !== null && 'value' in email ? email.value : email;
+    const rawEmail = this.extractValue(email);
     const found = await this.ormRepository.findOne({ where: { email: rawEmail } });
     if (!found) return null;
 

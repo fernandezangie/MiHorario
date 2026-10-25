@@ -10,6 +10,7 @@ describe('CreateEmployeeUseCase', () => {
 
     const dto: CreateEmployeeDto = {
       code: 'EMP001',
+      name: 'Pedro',
       email: 'prueba@mihorario.com',
     };
 
