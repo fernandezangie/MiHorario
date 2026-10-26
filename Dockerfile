@@ -1,43 +1,36 @@
-# ==========================================
-# Etapa 1: Construcción (Builder)
-# ==========================================
-FROM node:18-alpine AS builder
+# Stage 1: Build de la aplicación
+FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
-
-# Copilar dependencias de desarrollo y producción
-COPY package*.json ./
-RUN npm ci
-
-# Copiar el código fuente
-COPY . .
-
-# Compilar la aplicación NestJS (genera la carpeta /dist)
-RUN npm run build
-
-# ==========================================
-# Etapa 2: Producción (Runner)
-# ==========================================
-FROM node:18-alpine AS runner
-
-WORKDIR /usr/src/app
-
-ENV NODE_ENV=production
 
 # Copiar archivos de configuración de paquetes
 COPY package*.json ./
 
-# Instalar únicamente las dependencias de producción
+# Instalar TODAS las dependencias (incluyendo devDependencies para el build)
+RUN npm ci
+
+# Copiar el resto del código fuente
+COPY . .
+
+# Compilar NestJS (genera la carpeta /dist)
+RUN npm run build
+
+# Stage 2: Imagen de producción ligera
+FROM node:20-alpine AS production
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+# Instalar únicamente dependencias de producción
 RUN npm ci --only=production
 
-# Copiar los artefactos compilados desde la etapa anterior
+# Copiar la compilación desde el stage de build
 COPY --from=builder /usr/src/app/dist ./dist
 
-# Google Cloud Run inyecta dinámicamente la variable PORT (por defecto 8080)
+# Definir la variable de entorno del puerto
 ENV PORT=8080
 EXPOSE 8080
 
-# Ejecutar la aplicación con un usuario sin privilegios por seguridad
-USER node
-
+# Comando para iniciar la aplicación
 CMD ["node", "dist/main"]
