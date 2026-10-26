@@ -5,8 +5,8 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-# Usar npm install para garantizar la instalación completa de dependencias
-RUN npm install
+# Resolver dependencias ignorando conflictos estrictos de peer dependencies
+RUN npm install --legacy-peer-deps
 
 COPY . .
 
@@ -19,10 +19,8 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-# Usar --omit=dev (sintaxis moderna para excluir devDependencies)
-RUN npm install --omit=dev
+RUN npm install --omit=dev --legacy-peer-deps
 
-# Copiar la carpeta compilada dist
 COPY --from=builder /usr/src/app/dist ./dist
 
 ENV PORT=8080
