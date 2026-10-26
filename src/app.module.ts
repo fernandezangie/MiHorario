@@ -4,13 +4,17 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
 
+// Importación de controladores y servicios raíz
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
 // Importación de los módulos del MVP de MiHorario usando alias con '@'
 import { EmployeeModule } from '@employee/infrastructure/employee.module';
 import { JobModule } from '@job/infrastructure/job.module';
 import { ShiftModule } from '@shift/infrastructure/shift.module';
 import { RestrictionModule } from '@restriction/infrastructure/restriction.module';
 import { ZoneModule } from '@zone/infrastructure/zone.module';
-import { SharedModule } from '@shared/infrastructure/shared.module'; // <-- 1. Importa el módulo compartido
+import { SharedModule } from '@shared/infrastructure/shared.module';
 import configuration from './shared/infrastructure/config/configuration';
 import { validationSchema } from '@shared/infrastructure/config/environment.validation';
 
@@ -66,7 +70,9 @@ import { validationSchema } from '@shared/infrastructure/config/environment.vali
     ShiftModule,
     RestrictionModule,
     ZoneModule,
-    SharedModule, // <-- 2. Agrégalo aquí en los imports
+    SharedModule,
   ],
+  controllers: [AppController], // <-- ¡Añadido aquí!
+  providers: [AppService],       // <-- ¡Añadido aquí!
 })
 export class AppModule {}
