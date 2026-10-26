@@ -5,7 +5,8 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm ci
+# Usar npm install para garantizar la instalación completa de dependencias
+RUN npm install
 
 COPY . .
 
@@ -18,9 +19,10 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm ci --only=production
+# Usar --omit=dev (sintaxis moderna para excluir devDependencies)
+RUN npm install --omit=dev
 
-# Copiar la carpeta dist compilada
+# Copiar la carpeta compilada dist
 COPY --from=builder /usr/src/app/dist ./dist
 
 ENV PORT=8080
