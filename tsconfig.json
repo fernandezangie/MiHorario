@@ -17,7 +17,7 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    "types": ["node", "jest"],
+    "types": ["node", "vitest"],
     "paths": {
       "@employee/*": ["src/employee/*"],
       "@shared/*": ["src/shared/*"],
@@ -26,5 +26,7 @@
       "@restriction/*": ["src/restriction/*"],
       "@zone/*": ["src/zone/*"]
     }
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -6,4 +7,4 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.spec.ts'],
   },
-});
+} as any)
