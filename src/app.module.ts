@@ -4,18 +4,23 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
 
-// Importación de los módulos del MVP de MiHorario
-import { EmployeeModule } from './employee/infrastructure/employee.module';
-import { JobModule } from './job/infrastructure/job.module';
-import { ShiftModule } from './shift/infrastructure/shift.module';
-import { RestrictionModule } from './restriction/infrastructure/restriction.module';
-import { ZoneModule } from './zone/infrastructure/zone.module';
+// Importación de los módulos del MVP de MiHorario usando alias con '@'
+import { EmployeeModule } from '@employee/infrastructure/employee.module';
+import { JobModule } from '@job/infrastructure/job.module';
+import { ShiftModule } from '@shift/infrastructure/shift.module';
+import { RestrictionModule } from '@restriction/infrastructure/restriction.module';
+import { ZoneModule } from '@zone/infrastructure/zone.module';
+import { SharedModule } from '@shared/infrastructure/shared.module'; // <-- 1. Importa el módulo compartido
+import configuration from './shared/infrastructure/config/configuration';
+import { validationSchema } from '@shared/infrastructure/config/environment.validation';
 
 @Module({
   imports: [
-    // 1. Configuración global de variables de entorno
+    // 1. Configuración global de variables de entorno y validación
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [configuration],
+      validationSchema,
     }),
 
     // 2. Configuración global de Redis Cache con Redis Cloud
@@ -55,12 +60,13 @@ import { ZoneModule } from './zone/infrastructure/zone.module';
       }),
     }),
 
-    // 4. Registro de todos los módulos del MVP
+    // 4. Registro de todos los módulos del MVP (incluyendo SharedModule)
     EmployeeModule,
     JobModule,
     ShiftModule,
     RestrictionModule,
     ZoneModule,
+    SharedModule, // <-- 2. Agrégalo aquí en los imports
   ],
 })
 export class AppModule {}

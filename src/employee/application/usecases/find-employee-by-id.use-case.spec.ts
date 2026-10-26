@@ -4,6 +4,7 @@ import { EmployeeEntity } from '@employee/domain/model/entities/employee.entity'
 import { EmployeeCode } from '@employee/domain/model/value-objects/employee-code.vo';
 import { EmployeeEmail } from '@employee/domain/model/value-objects/employee-email.vo';
 import { EmployeeStatus } from '@employee/domain/model/enums/employee-status.enum';
+import { EmployeeName } from '@employee/domain/model/value-objects/employee-name.vo';
 
 describe('FindEmployeeByIdUseCase', () => {
   it('debería encontrar y retornar un empleado cuando existe el ID', async () => {
@@ -14,7 +15,8 @@ describe('FindEmployeeByIdUseCase', () => {
     const employee = new EmployeeEntity(
       'uuid-123',
       new EmployeeCode('EMP001'),
-      new EmployeeEmail('empleado@mihorario.com'),
+      new EmployeeName('Nombre Test'),           // <-- 3er argumento: EmployeeName
+      new EmployeeEmail('empleado@mihorario.com'), // <-- 4to argumento: EmployeeEmail
       EmployeeStatus.ACTIVE,
     );
     await repository.save(employee);

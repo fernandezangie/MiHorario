@@ -4,6 +4,10 @@ import { Repository } from 'typeorm';
 import { EmployeeRepositoryPort } from '@employee/domain/ports/employee.repository.port';
 import { EmployeeEntity } from '@employee/domain/model/entities/employee.entity';
 import { EmployeeOrmEntity } from './employee.orm-entity';
+import { EmployeeCode } from '@employee/domain/model/value-objects/employee-code.vo';
+import { EmployeeName } from '@employee/domain/model/value-objects/employee-name.vo';
+import { EmployeeEmail } from '@employee/domain/model/value-objects/employee-email.vo';
+import { EmployeeStatus } from '@employee/domain/model/enums/employee-status.enum';
 
 @Injectable()
 export class EmployeeTypeOrmRepository implements EmployeeRepositoryPort {
@@ -19,6 +23,16 @@ export class EmployeeTypeOrmRepository implements EmployeeRepositoryPort {
     return prop;
   }
 
+  private toDomain(ormEntity: EmployeeOrmEntity): EmployeeEntity {
+    return new EmployeeEntity(
+      ormEntity.id,
+      new EmployeeCode(ormEntity.jobId || 'DEFAULT'), // Mapeo de código desde jobId o similar
+      new EmployeeName(ormEntity.name),
+      new EmployeeEmail(ormEntity.email),
+      EmployeeStatus.ACTIVE, // Estado por defecto si la base de datos no lo almacena
+    );
+  }
+
   async save(employee: EmployeeEntity): Promise<void> {
     const emp = employee as any;
     const ormEntity = new EmployeeOrmEntity();
@@ -26,7 +40,7 @@ export class EmployeeTypeOrmRepository implements EmployeeRepositoryPort {
     ormEntity.id = this.extractValue(emp.id);
     ormEntity.name = this.extractValue(emp.name);
     ormEntity.email = this.extractValue(emp.email);
-    ormEntity.jobId = this.extractValue(emp.jobId);
+    ormEntity.jobId = this.extractValue(emp.code); // Mapeando code a jobId según la BD
 
     await this.ormRepository.save(ormEntity);
   }
@@ -36,7 +50,7 @@ export class EmployeeTypeOrmRepository implements EmployeeRepositoryPort {
     const found = await this.ormRepository.findOne({ where: { id: rawId } });
     if (!found) return null;
 
-    return new EmployeeEntity(found.id as any, found.name as any, found.email as any, found.jobId as any);
+    return this.toDomain(found);
   }
 
   async findByEmail(email: any): Promise<EmployeeEntity | null> {
@@ -44,13 +58,11 @@ export class EmployeeTypeOrmRepository implements EmployeeRepositoryPort {
     const found = await this.ormRepository.findOne({ where: { email: rawEmail } });
     if (!found) return null;
 
-    return new EmployeeEntity(found.id as any, found.name as any, found.email as any, found.jobId as any);
+    return this.toDomain(found);
   }
 
   async findAll(): Promise<EmployeeEntity[]> {
     const list = await this.ormRepository.find();
-    return list.map(
-      (item) => new EmployeeEntity(item.id as any, item.name as any, item.email as any, item.jobId as any),
-    );
+    return list.map((item) => this.toDomain(item));
   }
 }

@@ -13,23 +13,27 @@ export class EmployeeEntity extends Entity<string> {
   constructor(
     id: string,
     code: EmployeeCode,
+    name: EmployeeName, // <-- Añadido al constructor
     email: EmployeeEmail,
     status: EmployeeStatus,
   ) {
-    super(id); // Envía el id a la clase base Entity
+    super(id);
     this.code = code;
+    this.name = name; // <-- Asignado
     this.email = email;
     this.status = status;
   }
 
-  // El getter 'id' ya viene heredado de Entity<string>
-  // Si deseas mantener getId() por compatibilidad, puedes conservarlo:
   public getId(): string {
     return this.id;
   }
 
   public getCode(): EmployeeCode {
     return this.code;
+  }
+
+  public getName(): EmployeeName { // <-- Getter para el nombre
+    return this.name;
   }
 
   public getEmail(): EmployeeEmail {
@@ -40,7 +44,6 @@ export class EmployeeEntity extends Entity<string> {
     return this.status;
   }
 
-  // Métodos de negocio y comportamiento del dominio
   public updateEmail(newEmail: EmployeeEmail): void {
     if (!newEmail) {
       throw new Error('El nuevo correo no puede ser nulo.');
