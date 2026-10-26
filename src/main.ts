@@ -5,10 +5,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Usar el puerto asignado por Render o 3000 por defecto para desarrollo local
   const port = process.env.PORT || 3000;
-  await app.listen(port);
 
-  console.log(`Application is running on: http://localhost:${port}`);
+  // Escuchar en 0.0.0.0 es obligatorio para que Render y Docker acepten el tráfico externo
+  await app.listen(port, '0.0.0.0');
+
+  console.log(`Application is running on: http://0.0.0.0:${port}`);
 }
 bootstrap();
