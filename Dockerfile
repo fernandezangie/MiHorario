@@ -20,10 +20,10 @@ COPY package*.json ./
 
 RUN npm ci --only=production
 
+# Copiar la carpeta dist compilada
 COPY --from=builder /usr/src/app/dist ./dist
 
 ENV PORT=8080
 EXPOSE 8080
 
-# Usar la ruta correcta generada por la compilación de NestJS
-CMD ["node", "dist/src/main"]
+CMD ["npm", "run", "start:prod"]
