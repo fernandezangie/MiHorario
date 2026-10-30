@@ -3,6 +3,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { redisStore } from 'cache-manager-redis-yet';
 import { CacheService } from './cache.service';
+import { ParameterCatalogService } from './parameter-catalog.service'; // <-- Importado
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { CacheService } from './cache.service';
       },
     }),
   ],
-  providers: [CacheService],
-  exports: [CacheService, CacheModule],
+  providers: [CacheService, ParameterCatalogService], // <-- Añadido a los providers
+  exports: [CacheService, ParameterCatalogService, CacheModule], // <-- Exportado para otros módulos
 })
 export class CustomCacheModule {}

@@ -18,4 +18,9 @@ export class CacheService {
   async delete(key: string): Promise<void> {
     await this.cacheManager.del(key);
   }
+
+  // Alias para mantener compatibilidad con cualquier llamada usando 'del'
+  async del(key: string): Promise<void> {
+    await this.delete(key);
+  }
 }
