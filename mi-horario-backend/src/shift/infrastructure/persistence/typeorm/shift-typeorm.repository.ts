@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  DataSource,
+  Repository,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+} from 'typeorm';
 import { ShiftRepositoryPort } from '@shift/domain/ports/shift.repository.port';
 import { ShiftEntity } from '@shift/domain/model/entities/shift.entity';
 import { ShiftOrmEntity } from './shift.orm-entity';
@@ -10,21 +15,75 @@ export class ShiftTypeOrmRepository implements ShiftRepositoryPort {
   constructor(
     @InjectRepository(ShiftOrmEntity)
     private readonly ormRepository: Repository<ShiftOrmEntity>,
+    private readonly dataSource: DataSource, // <--- Inyectamos el DataSource para manejar transacciones
   ) {}
 
   async save(shift: ShiftEntity): Promise<void> {
     const s = shift as any;
-    const ormEntity = new ShiftOrmEntity();
-    ormEntity.id = s.id?.value ?? s.id;
-    ormEntity.employeeId = s.employeeId?.value ?? s.employeeId;
-    ormEntity.startTime = s.startTime?.value ?? s.startTime;
-    ormEntity.endTime = s.endTime?.value ?? s.endTime;
+    const maxRetries = 3;
+    let attempt = 0;
 
-    await this.ormRepository.save(ormEntity);
+    while (attempt < maxRetries) {
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction('SERIALIZABLE'); // <--- Nivel estricto para control de concurrencia
+
+      try {
+        const employeeId = s.employeeId?.value ?? s.employeeId;
+        const startTime = s.startTime?.value ?? s.startTime;
+        const endTime = s.endTime?.value ?? s.endTime;
+
+        // 1. Validación de solapamiento (Doble Candado) dentro de la transacción
+        const overlapping = await queryRunner.manager.findOne(ShiftOrmEntity, {
+          where: {
+            employeeId,
+            startTime: LessThanOrEqual(endTime),
+            endTime: MoreThanOrEqual(startTime),
+          },
+        });
+
+        if (overlapping) {
+          throw new ConflictException(
+            'El empleado ya cuenta con un turno asignado que se solapa en este horario.',
+          );
+        }
+
+        // 2. Preparar entidad ORM
+        const ormEntity = new ShiftOrmEntity();
+        ormEntity.id = s.id?.value ?? s.id;
+        ormEntity.employeeId = employeeId;
+        ormEntity.startTime = startTime;
+        ormEntity.endTime = endTime;
+
+        await queryRunner.manager.save(ormEntity);
+        await queryRunner.commitTransaction();
+        return;
+      } catch (error) {
+        await queryRunner.rollbackTransaction();
+
+        // 3. Manejo de reintentos automáticos para el código de error 40001 de CockroachDB
+        if (error.code === '40001' && attempt < maxRetries - 1) {
+          attempt++;
+          await new Promise((resolve) =>
+            setTimeout(resolve, 50 * Math.pow(2, attempt)),
+          );
+          continue;
+        }
+
+        throw error;
+      } finally {
+        await queryRunner.release();
+      }
+    }
+
+    throw new ConflictException(
+      'No se pudo procesar la transacción debido a alta concurrencia. Intente de nuevo.',
+    );
   }
 
   async findById(id: any): Promise<ShiftEntity | null> {
-    const rawId = typeof id === 'object' && id !== null && 'value' in id ? id.value : id;
+    const rawId =
+      typeof id === 'object' && id !== null && 'value' in id ? id.value : id;
     const found = await this.ormRepository.findOne({ where: { id: rawId } });
     if (!found) return null;
 
