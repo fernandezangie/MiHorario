@@ -1,12 +1,22 @@
-import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service.js';
+import { Controller, Get, Param } from '@nestjs/common';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message-catalog.service';
 
-@Controller()
+@Controller('messages')
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly messageCatalogService: MessageCatalogService) {}
 
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  @Get(':code')
+  async getTestMessage(@Param('code') code: string) {
+    const resolvedMessage = await this.messageCatalogService.getMessage(
+      code,
+      'es',
+      { id: '99' },
+    );
+
+    return {
+      success: true,
+      requestedCode: code,
+      resolvedMessage,
+    };
   }
 }

@@ -1,17 +1,22 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { MessageCatalogService } from './message-catalog.service';
+import { MessageCatalogService } from './message-catalog.service'; // o ajusta tu ruta de importación si es distinta
 
-@Controller('messaging')
+@Controller('messages') // <-- ¡Asegúrate de que esta línea esté presente y bien escrita!
 export class MessageTestController {
   constructor(private readonly messageCatalogService: MessageCatalogService) {}
 
-  @Get('test/:code')
-  async testMessage(@Param('code') code: string) {
-    const message = await this.messageCatalogService.getMessageTemplate(code);
+  @Get(':code')
+  async getTestMessage(@Param('code') code: string) {
+    const resolvedMessage = await this.messageCatalogService.getMessage(
+      code,
+      'es',
+      { id: '99' },
+    );
+
     return {
       success: true,
-      queriedCode: code,
-      resolvedMessage: message,
+      requestedCode: code,
+      resolvedMessage,
     };
   }
 }

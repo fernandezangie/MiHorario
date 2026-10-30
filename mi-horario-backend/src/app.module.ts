@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-redis-yet';
 
 // Importación de controladores y servicios raíz
 import { AppController } from './app.controller';
@@ -18,6 +16,9 @@ import { SharedModule } from '@shared/infrastructure/shared.module';
 import configuration from './shared/infrastructure/config/configuration';
 import { validationSchema } from '@shared/infrastructure/config/environment.validation';
 
+// Módulo de caché con Redis (único punto de configuración de Redis)
+import { CustomCacheModule } from '@shared/infrastructure/cache/cache.module';
+
 @Module({
   imports: [
     // 1. Configuración global de variables de entorno y validación
@@ -27,23 +28,8 @@ import { validationSchema } from '@shared/infrastructure/config/environment.vali
       validationSchema,
     }),
 
-    // 2. Configuración global de Redis Cache con Redis Cloud
-    CacheModule.registerAsync({
-      isGlobal: true,
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        store: await redisStore({
-          socket: {
-            host: configService.get<string>('REDIS_HOST'),
-            port: parseInt(configService.get<string>('REDIS_PORT'), 10),
-          },
-          username: 'default',
-          password: configService.get<string>('REDIS_PASSWORD'),
-        }),
-        ttl: 300000, // 5 minutos por defecto en milisegundos
-      }),
-    }),
+    // 2. Caché con Redis Cloud (TLS configurable por REDIS_TLS)
+    CustomCacheModule,
 
     // 3. Conexión global a CockroachDB Cloud mediante TypeORM
     TypeOrmModule.forRootAsync({
@@ -54,7 +40,7 @@ import { validationSchema } from '@shared/infrastructure/config/environment.vali
         host: configService.get<string>('DB_HOST'),
         port: parseInt(configService.get<string>('DB_PORT') || '26257', 10),
         username: configService.get<string>('DB_USER'),
-        password: configService.get<string>('DB_PASSWORD'),
+        password: configService.get<string>('database.password'),
         database: configService.get<string>('DB_NAME'),
         ssl: {
           rejectUnauthorized: false,
@@ -72,7 +58,7 @@ import { validationSchema } from '@shared/infrastructure/config/environment.vali
     ZoneModule,
     SharedModule,
   ],
-  controllers: [AppController], // <-- ¡Añadido aquí!
-  providers: [AppService],       // <-- ¡Añadido aquí!
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

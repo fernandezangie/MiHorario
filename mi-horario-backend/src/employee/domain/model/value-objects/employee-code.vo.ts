@@ -8,12 +8,13 @@ export class EmployeeCode {
 
   private validate(code: string): void {
     if (!code || code.trim().length === 0) {
-      throw new Error('El código del empleado es obligatorio.');
+      throw new Error('EMPLOYEE_CODE_REQUIRED');
     }
-    // Ejemplo de regla: el código debe tener al menos 4 caracteres alfanuméricos
+    // Ejemplo de regla: el código debe tener al menos 4 caracteres alfanuméricos en mayúscula y/o números
     const codeRegex = /^[A-Z0-9]{4,}$/;
     if (!codeRegex.test(code)) {
-      throw new Error(`El código "${code}" debe tener al menos 4 caracteres en mayúscula y/o números.`);
+      // Pasamos el código dinámico usando el identificador o formato esperado
+      throw new Error(`EMPLOYEE_CODE_INVALID_FORMAT:${code}`);
     }
   }
 

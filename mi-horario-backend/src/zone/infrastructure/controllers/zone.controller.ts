@@ -15,7 +15,7 @@ export class ZoneController {
     await this.createZoneUseCase.execute(dto);
     return {
       statusCode: 201,
-      message: 'Zona creada exitosamente',
+      message: 'ZONE_CREATED',
     };
   }
 

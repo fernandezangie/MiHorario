@@ -8,11 +8,12 @@ export class EmployeeEmail {
 
   private validate(email: string): void {
     if (!email) {
-      throw new Error('El correo electrónico del empleado no puede estar vacío.');
+      throw new Error('EMPLOYEE_EMAIL_REQUIRED');
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      throw new Error(`El formato del correo electrónico "${email}" no es válido.`);
+      // Opcional: puedes adjuntar el valor si tu sistema lo parsea, o usar un código limpio
+      throw new Error(`EMPLOYEE_EMAIL_INVALID_FORMAT`);
     }
   }
 

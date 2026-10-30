@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: mi-horario-backend/Dockerfile # Ruta a tu Dockerfile
+    container_name: mihorario_api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+
+      # Configuración de Base de Datos (CockroachDB)
+      - DB_HOST=mihorario-22313.jxf.gcp-us-east1.cockroachlabs.cloud
+      - DB_PORT=26257
+      - DB_USER=angie.amaya0880
+      - DB_NAME=defaultdb
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+
+      # Configuración de Redis Cloud
+      - REDIS_HOST=macromodern-vigorous-trick-24402.db.redis.io
+      - REDIS_PORT=11729
+      - REDIS_USER=default # <--- Requerido por Redis Cloud para autenticar
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+
+    secrets:
+      - db_password
+      - redis_password
+
+    restart: always
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt

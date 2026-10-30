@@ -23,7 +23,7 @@ export class ShiftEntity extends Entity<string> {
 
   private validateDates(start: Date, end: Date): void {
     if (start >= end) {
-      throw new Error('La hora de inicio debe ser anterior a la hora de finalización.');
+      throw new Error('DATE_ERROR');
     }
   }
 

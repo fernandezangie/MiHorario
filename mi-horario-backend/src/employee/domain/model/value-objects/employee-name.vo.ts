@@ -8,10 +8,10 @@ export class EmployeeName {
 
   private validate(value: string): void {
     if (!value || value.trim().length === 0) {
-      throw new Error('El nombre del empleado es obligatorio.');
+      throw new Error('EMPLOYEE_NAME_REQUIRED');
     }
     if (value.trim().length < 2) {
-      throw new Error('El nombre del empleado debe tener al menos 2 caracteres.');
+      throw new Error('EMPLOYEE_NAME_MIN_LENGTH');
     }
   }
 

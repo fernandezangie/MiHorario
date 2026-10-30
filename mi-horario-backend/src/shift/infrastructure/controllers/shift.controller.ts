@@ -17,7 +17,7 @@ export class ShiftController {
     await this.createShiftUseCase.execute(dto);
     return {
       statusCode: 201,
-      message: 'Turno creado exitosamente',
+      message: 'SHIFT_CREATE',
     };
   }
 

@@ -25,7 +25,7 @@ export class JobEntity extends Entity<string> {
 
   public updateTitle(newTitle: string): void {
     if (!newTitle || newTitle.trim().length === 0) {
-      throw new Error('El título del puesto no puede estar vacío.');
+      throw new Error('JOB_TITLE_REQUIRED');
     }
     this.title = newTitle;
   }

@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { CacheService } from './cache/cache.service';
 import { MessageCatalogService } from './messaging/message-catalog.service';
 import { MessageTestController } from './messaging/message-test.controller';
 import { NotificationService } from './messaging/notification.service';
 
+@Global() // <-- Esto hace que esté disponible en todo el backend de forma transversal
 @Module({
   imports: [
     MailerModule.forRoot({

@@ -1,32 +1,35 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
-import { Response } from 'express';
+import { Controller, Post, Get, Body, Param } from '@nestjs/common';
+import { CreateRestrictionUseCase } from '@restriction/application/use-cases/create-restriction.use-case';
+import { FindRestrictionsByEmployeeUseCase } from '@restriction/application/use-cases/find-restrictions-by-employee.use-case';
+import { CreateRestrictionDto } from '@restriction/application/dtos/create-restriction.dto';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message-catalog.service'; // <-- Importa el servicio
 
-@Catch()
-export class AllExceptionsFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
+@Controller('restriction')
+export class RestrictionController {
+  constructor(
+    private readonly createRestrictionUseCase: CreateRestrictionUseCase,
+    private readonly findRestrictionsByEmployeeUseCase: FindRestrictionsByEmployeeUseCase,
+    private readonly messageCatalogService: MessageCatalogService, // <-- Inyecta el catálogo
+  ) {}
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+  @Post()
+  async create(@Body() dto: CreateRestrictionDto) {
+    await this.createRestrictionUseCase.execute(dto);
 
-    const message =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Error interno del servidor';
+    // Obtenemos el mensaje de éxito dinámicamente desde Redis
+    const successMessage = await this.messageCatalogService.getMessage(
+      'RESTRICTION_CREATED_SUCCESS',
+      'es',
+    );
 
-    response.status(status).json({
-      statusCode: status,
-      timestamp: new Date().toISOString(),
-      error: message,
-    });
+    return {
+      statusCode: 201,
+      message: successMessage,
+    };
+  }
+
+  @Get('employee/:employeeId')
+  async findByEmployee(@Param('employeeId') employeeId: string) {
+    return await this.findRestrictionsByEmployeeUseCase.execute(employeeId);
   }
 }

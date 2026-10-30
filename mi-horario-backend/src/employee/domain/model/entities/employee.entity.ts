@@ -13,13 +13,13 @@ export class EmployeeEntity extends Entity<string> {
   constructor(
     id: string,
     code: EmployeeCode,
-    name: EmployeeName, // <-- Añadido al constructor
+    name: EmployeeName,
     email: EmployeeEmail,
     status: EmployeeStatus,
   ) {
     super(id);
     this.code = code;
-    this.name = name; // <-- Asignado
+    this.name = name;
     this.email = email;
     this.status = status;
   }
@@ -32,7 +32,7 @@ export class EmployeeEntity extends Entity<string> {
     return this.code;
   }
 
-  public getName(): EmployeeName { // <-- Getter para el nombre
+  public getName(): EmployeeName {
     return this.name;
   }
 
@@ -46,7 +46,8 @@ export class EmployeeEntity extends Entity<string> {
 
   public updateEmail(newEmail: EmployeeEmail): void {
     if (!newEmail) {
-      throw new Error('El nuevo correo no puede ser nulo.');
+      // Usamos un código de error o excepción estándar limpia
+      throw new Error('EMPLOYEE_EMAIL_NULL_ERROR');
     }
     this.email = newEmail;
   }

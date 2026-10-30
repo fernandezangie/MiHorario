@@ -1,35 +1,48 @@
-import { Injectable } from '@nestjs/common';
-import { CacheService } from '@shared/infrastructure/cache/cache.service';
+import { Injectable, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class MessageCatalogService {
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
 
-  async getMessageTemplate(code: string): Promise<string> {
-    const cacheKey = `catalog:message:${code}`;
-
-    // 1. Intentar obtener la plantilla desde Redis Cloud
-    const cachedTemplate = await this.cacheService.get<string>(cacheKey);
-    if (cachedTemplate) {
-      return cachedTemplate;
-    }
-
-    // 2. Si no está en caché, buscar en el catálogo predefinido o base de datos
-    const template = this.findTemplateInStore(code);
-
-    // 3. Guardar en Redis Cloud con un tiempo de vida (ej. 24 horas = 86400000 ms)
-    await this.cacheService.set(cacheKey, template, 86400000);
-
-    return template;
+  async getMessage(
+    code: string,
+    lang: string = 'es',
+    args: Record<string, string> = {},
+  ): Promise<string> {
+    const message = await this.getMessageTemplate(code, lang);
+    return this.formatMessage(message, args);
   }
 
-  private findTemplateInStore(code: string): string {
-    const catalog: Record<string, string> = {
-      EMPLOYEE_CREATED: 'El empleado {employeeName} ha sido registrado exitosamente.',
-      SHIFT_ASSIGNED: 'Hola {employeeName}, tienes un nuevo turno asignado para el día {date}.',
-      RESTRICTION_VIOLATION: 'Alerta: Se detectó una infracción de restricción laboral para {employeeName}.',
-    };
+  async getMessageTemplate(code: string, lang: string = 'es'): Promise<string> {
+    try {
+      const store: any = this.cacheManager.store;
 
-    return catalog[code] || 'Plantilla de mensaje no encontrada en el catálogo.';
+      // Intentamos obtener el cliente subyacente de las formas compatibles con cache-manager-redis-yet
+      const client =
+        store.client ||
+        (typeof store.getClient === 'function' ? store.getClient() : null);
+
+      const hashKey = `messages:${lang}`;
+      let message: string | null = null;
+
+      if (client) {
+        if (typeof client.hGet === 'function') {
+          message = await client.hGet(hashKey, code);
+        } else if (typeof client.hget === 'function') {
+          message = await client.hget(hashKey, code);
+        }
+      }
+
+      return message || code;
+    } catch (error) {
+      console.error('MESSAGE_ERROR:', error);
+      return code;
+    }
+  }
+
+  private formatMessage(message: string, args: Record<string, string>): string {
+    return message.replace(/{(\w+)}/g, (_, key) => args[key] || `{${key}}`);
   }
 }
