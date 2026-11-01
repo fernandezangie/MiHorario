@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as net from 'net';
+import * as fs from 'fs';
 
 // Importación de controladores y servicios raíz
 import { AppController } from './app.controller';
@@ -53,6 +54,77 @@ function checkTcpPortReachable(
   });
 }
 
+/**
+ * Obtiene la contraseña de la base de datos.
+ * 1) Si DB_PASSWORD_FILE apunta a un archivo/directorio real (Docker Secret), lo lee.
+ * 2) Si no, usa SOLO process.env.DB_PASSWORD.
+ * Siempre retorna un string.
+ */
+function getDatabasePassword(): string {
+  try {
+    const passwordPath = process.env.DB_PASSWORD_FILE;
+
+    if (passwordPath && fs.existsSync(passwordPath)) {
+      const stats = fs.statSync(passwordPath);
+
+      if (stats.isDirectory()) {
+        const files = fs.readdirSync(passwordPath);
+        if (files.length > 0) {
+          const pass = fs
+            .readFileSync(`${passwordPath}/${files[0]}`, 'utf8')
+            .trim();
+          bootLogger.log(
+            `[SECRET_SUCCESS] Contraseña leída desde directorio Docker Secret. Longitud: ${pass.length}`,
+          );
+          return pass;
+        }
+      }
+
+      if (stats.isFile()) {
+        const pass = fs.readFileSync(passwordPath, 'utf8').trim();
+        bootLogger.log(
+          `[SECRET_SUCCESS] Contraseña leída desde archivo Docker Secret. Longitud: ${pass.length}`,
+        );
+        return pass;
+      }
+    }
+
+    const envPass = process.env.DB_PASSWORD || '';
+
+    if (!envPass) {
+      bootLogger.error(
+        '[SECRET_ERROR] DB_PASSWORD no está definida en el entorno del contenedor.',
+      );
+    } else {
+      bootLogger.log(
+        `[SECRET_FALLBACK] Usando DB_PASSWORD del entorno. Longitud: ${envPass.length}`,
+      );
+    }
+    return envPass;
+  } catch (error) {
+    bootLogger.error(
+      `[SECRET_ERROR] Error leyendo contraseña: ${error.message}`,
+    );
+    return '';
+  }
+}
+
+/**
+ * Determina si se debe usar SSL en la conexión a la base de datos.
+ * - DB_SSL=false  -> sin SSL (Postgres local en Docker).
+ * - DB_SSL=true   -> con SSL (CockroachDB Cloud u otro remoto).
+ * - Sin definir   -> SSL solo si el host no es local.
+ */
+function resolveDbSsl(dbHost: string): false | { rejectUnauthorized: boolean } {
+  const flag = (process.env.DB_SSL || '').toLowerCase();
+
+  if (flag === 'false') return false;
+  if (flag === 'true') return { rejectUnauthorized: false };
+
+  const isLocal = dbHost === 'localhost' || dbHost === '127.0.0.1';
+  return isLocal ? false : { rejectUnauthorized: false };
+}
+
 @Module({
   imports: [
     // 1. Configuración global de variables de entorno y validación (Building Block Secret Manager ADR-0001)
@@ -62,19 +134,22 @@ function checkTcpPortReachable(
       validationSchema,
     }),
 
-    // 2. Caché con Redis Cloud y Fallback en Memoria Resiliente (TLS configurable por REDIS_TLS)
+    // 2. Caché con Redis y Fallback en Memoria Resiliente (TLS configurable por REDIS_TLS)
     CustomCacheModule,
 
-    // 3. Conexión global a CockroachDB Cloud / PostgreSQL mediante TypeORM con detección preventiva
+    // 3. Conexión global a PostgreSQL / CockroachDB mediante TypeORM con detección preventiva
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
         const dbHost = configService.get<string>('DB_HOST') || 'localhost';
         const dbPort = parseInt(
-          configService.get<string>('DB_PORT') || '26257',
+          configService.get<string>('DB_PORT') || '5432',
           10,
         );
+        const dbUser = configService.get<string>('DB_USER') || 'postgres';
+        const dbName = configService.get<string>('DB_NAME') || 'mi_horario_db';
+
         const isDbUp = await checkTcpPortReachable(dbHost, dbPort);
 
         if (!isDbUp) {
@@ -83,19 +158,20 @@ function checkTcpPortReachable(
           );
         }
 
+        const ssl = resolveDbSsl(dbHost);
+
+        bootLogger.log(
+          `[DB_CONFIG] host=${dbHost} port=${dbPort} user=${dbUser} db=${dbName} ssl=${ssl ? 'on' : 'off'}`,
+        );
+
         return {
-          type: 'postgres',
+          type: 'postgres' as const,
           host: dbHost,
           port: dbPort,
-          username: configService.get<string>('DB_USER'),
-          password:
-            configService.get<string>('database.password') ||
-            configService.get<string>('DB_PASSWORD'),
-          database: configService.get<string>('DB_NAME'),
-          ssl:
-            dbHost === 'localhost' || dbHost === '127.0.0.1'
-              ? false
-              : { rejectUnauthorized: false },
+          username: dbUser,
+          password: getDatabasePassword(),
+          database: dbName,
+          ssl,
           autoLoadEntities: true,
           synchronize: false,
           manualInitialization: !isDbUp,

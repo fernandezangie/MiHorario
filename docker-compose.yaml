@@ -1,0 +1,78 @@
+name: mi_horario_app
+
+services:
+  app:
+    build:
+      context: ./mi-horario-backend
+      dockerfile: Dockerfile
+    container_name: mihorario_api
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./mi-horario-backend/.env
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=cockroach
+      - DB_PORT=26257
+      - DB_USER=angie
+      - DB_NAME=defaultdb
+      - DB_SSL=false
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_USER=default
+      - REDIS_TLS=false
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+    secrets:
+      - db_password
+      - redis_password
+    depends_on:
+      cockroach-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  cockroach:
+    image: cockroachdb/cockroach:v24.3.0
+    container_name: mihorario_cockroach
+    command: start-single-node --insecure
+    ports:
+      - "26257:26257"
+      - "8081:8080"
+    volumes:
+      - cockroach_data:/cockroach/cockroach-data
+    healthcheck:
+      test: ["CMD", "/cockroach/cockroach", "sql", "--insecure", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: mihorario_redis
+    ports:
+      - "6379:6379"
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$(cat /run/secrets/redis_password)\""]
+    secrets:
+      - redis_password
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/redis_password)\" --no-auth-warning ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+secrets:
+  db_password:
+    file: ./mi-horario-backend/secrets/db_password.txt
+  redis_password:
+    file: ./mi-horario-backend/secrets/redis_password.txt
+
+volumes:
+  cockroach_data:
+  redis_data:
