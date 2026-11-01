@@ -17,7 +17,7 @@ export class EmployeeController {
   constructor(
     private readonly createEmployeeUseCase: CreateEmployeeUseCase,
     private readonly listEmployeesUseCase: ListEmployeesUseCase,
-  ) {}
+  ) { }
 
   @Roles('ADMIN')
   @Post()
