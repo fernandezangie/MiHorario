@@ -6,18 +6,24 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Habilitar CORS para permitir peticiones desde el Frontend React + Vite (ADR-0007 / ADR-0009)
+  // Habilitar CORS con soporte de credenciales (Cookie HttpOnly de Refresh Token - ADR-0005 Paso 2)
   app.enableCors({
     origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
-  // Blindaje de entrada global contra Mass Assignment e Inyecciones (ADR-0005 / OWASP A03)
+  /**
+   * Paso 3 de ADR-0005 (Líneas 46-51): Blindaje Perimetral contra Inyecciones (OWASP A03)
+   * y Mass Assignment mediante las 3 políticas obligatorias del ValidationPipe:
+   * 1. whitelist: true -> Descarta propiedades no declaradas en el DTO.
+   * 2. forbidNonWhitelisted: true -> Lanza 400 Bad Request inmediato si envían campos intrusos (ej. "roles": ["ADMIN"]).
+   * 3. transform: true -> Coerción estricta de tipos contra Type Juggling.
+   */
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: true,
       transform: true,
     }),
   );
