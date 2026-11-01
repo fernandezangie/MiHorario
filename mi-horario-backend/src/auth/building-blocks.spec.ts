@@ -21,14 +21,17 @@ describe('Verificación de Building Blocks Arquitectónicos (ADR-0001 a ADR-0011
   it('Bloque 1 (Identity Provider JWT & RBAC): emite y verifica tokens firmados para ADMIN y EMPLOYEE', () => {
     const token = jwtService.sign({
       sub: 'ADM-001',
+      employeeId: 'ADM-001',
+      areaId: 'AREA-RIONEGRO-01',
       code: 'SUP-0100',
       name: 'Daniela Gómez',
       email: 'daniela.gomez@comfama.com',
-      role: 'ADMIN',
       roles: ['ADMIN'],
-      employeeId: 'EMP-001',
-      areaId: 'AREA-001',
+      role: 'ADMIN',
+      title: 'Supervisora de Operaciones',
+      department: 'Dirección Parque Rionegro',
     });
+
 
     expect(typeof token).toBe('string');
     expect(token.split('.').length).toBe(3);
