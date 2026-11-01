@@ -3,10 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ZoneRepositoryPort } from '@zone/domain/ports/zone.repository.port';
 import { ZoneEntity } from '@zone/domain/model/entities/zone.entity';
-import { ZoneOrmEntity } from './zone.orm-entity';
+import { ZoneOrmEntity } from './zone.orm.entity';
 
 @Injectable()
-export class ZoneTypeOrmRepository implements ZoneRepositoryPort {
+export class ZoneTypeormRepository implements ZoneRepositoryPort {
   constructor(
     @InjectRepository(ZoneOrmEntity)
     private readonly ormRepository: Repository<ZoneOrmEntity>,

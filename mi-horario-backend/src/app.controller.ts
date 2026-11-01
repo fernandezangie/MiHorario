@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { MessageCatalogService } from '@shared/infrastructure/messaging/message-catalog.service';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
 
 @Controller('messages')
 export class AppController {

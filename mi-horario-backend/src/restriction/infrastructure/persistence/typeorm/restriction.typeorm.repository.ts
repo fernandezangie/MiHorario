@@ -3,10 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RestrictionRepositoryPort } from '@restriction/domain/ports/restriction.repository.port';
 import { RestrictionEntity } from '@restriction/domain/model/entities/restriction.entity';
-import { RestrictionOrmEntity } from './restriction.orm-entity';
+import { RestrictionOrmEntity } from './restriction.orm.entity';
 
 @Injectable()
-export class RestrictionTypeOrmRepository implements RestrictionRepositoryPort {
+export class RestrictionTypeormRepository implements RestrictionRepositoryPort {
   constructor(
     @InjectRepository(RestrictionOrmEntity)
     private readonly ormRepository: Repository<RestrictionOrmEntity>,

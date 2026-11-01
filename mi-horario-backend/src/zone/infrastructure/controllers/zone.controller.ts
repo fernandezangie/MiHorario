@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body } from '@nestjs/common';
-import { CreateZoneUseCase } from '@zone/application/use-cases/create-zone.use-case';
-import { ListZonesUseCase } from '@zone/application/use-cases/list-zones.use-case';
-import { CreateZoneDto } from '@zone/application/dtos/create-zone.dto';
+import { CreateZoneUseCase } from '@zone/application/usecases/create.zone.use.case';
+import { ListZonesUseCase } from '@zone/application/usecases/list.zones.use.case';
+import { CreateZoneDto } from '@zone/application/dtos/create.zone.dto';
 
 @Controller('zone')
 export class ZoneController {

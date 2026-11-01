@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { RestrictionRepositoryPort } from '@restriction/domain/ports/restriction.repository.port';
-import { CreateRestrictionDto } from '@restriction/application/dtos/create-restriction.dto';
+import { CreateRestrictionDto } from '@restriction/application/dtos/create.restriction.dto';
 import { RestrictionEntity } from '@restriction/domain/model/entities/restriction.entity';
 
 @Injectable()

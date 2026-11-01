@@ -85,4 +85,3 @@ describe('Verificación de Building Blocks Arquitectónicos (ADR-0001 a ADR-0011
     expect(spec.paths['/audit-logs']).toBeDefined();
   });
 });
-

@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RestrictionController } from './controllers/restriction.controller';
-import { RestrictionOrmEntity } from './persistence/typeorm/restriction.orm-entity';
-import { RestrictionTypeOrmRepository } from './persistence/typeorm/restriction-typeorm.repository';
-import { CreateRestrictionUseCase } from '@restriction/application/use-cases/create-restriction.use-case';
-import { ListRestrictionsUseCase } from '@restriction/application/use-cases/list-restrictions.use-case';
-import { FindRestrictionsByEmployeeUseCase } from '@restriction/application/use-cases/find-restrictions-by-employee.use-case';
+import { RestrictionOrmEntity } from './persistence/typeorm/restriction.orm.entity';
+import { RestrictionTypeormRepository } from './persistence/typeorm/restriction.typeorm.repository';
+import { CreateRestrictionUseCase } from '@restriction/application/usecases/create.restriction.use.case';
+import { ListRestrictionsUseCase } from '@restriction/application/usecases/list.restrictions.use.case';
+import { FindRestrictionsByEmployeeUseCase } from '@restriction/application/usecases/find.restrictions.by.employee.use.case';
 
 @Module({
   imports: [TypeOrmModule.forFeature([RestrictionOrmEntity])],
@@ -16,7 +16,7 @@ import { FindRestrictionsByEmployeeUseCase } from '@restriction/application/use-
     FindRestrictionsByEmployeeUseCase, // <-- ¡Registrado aquí!
     {
       provide: 'RestrictionRepositoryPort',
-      useClass: RestrictionTypeOrmRepository,
+      useClass: RestrictionTypeormRepository,
     },
   ],
   exports: [

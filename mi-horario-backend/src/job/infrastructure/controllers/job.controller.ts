@@ -1,9 +1,9 @@
 import { Controller, Post, Get, Body } from '@nestjs/common';
-import { CreateJobUseCase } from '@job/application/use-cases/create-job.use-case';
-import { CreateJobDto } from '@job/application/dtos/create-job.dto';
+import { CreateJobUseCase } from '@job/application/usecases/create.job.use.case';
+import { CreateJobDto } from '@job/application/dtos/create.job.dto';
 import { JobRepositoryPort } from '@job/domain/ports/job.repository.port';
 import { Inject } from '@nestjs/common';
-import { MessageCatalogService } from '@shared/infrastructure/messaging/message-catalog.service'; // <-- Importa el servicio
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // <-- Importa el servicio
 
 @Controller('job')
 export class JobController {

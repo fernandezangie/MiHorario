@@ -4,7 +4,30 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { redisStore } from 'cache-manager-redis-yet';
 import * as net from 'net';
 import { CacheService } from './cache.service';
-import { ParameterCatalogService } from './parameter-catalog.service'; // <-- Importado
+import { ParameterCatalogService } from './parameter.catalog.service'; // <-- Importado
+
+const cacheLogger = new Logger('CustomCacheModule');
+
+function checkTcpPortReachable(
+  host: string,
+  port: number,
+  timeoutMs = 1200,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const onError = () => {
+      socket.destroy();
+      resolve(false);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once('error', onError);
+    socket.once('timeout', onError);
+    socket.connect(port, host, () => {
+      socket.end();
+      resolve(true);
+    });
+  });
+}
 
 const cacheLogger = new Logger('CustomCacheModule');
 

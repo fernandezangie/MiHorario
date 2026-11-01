@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { JobRepositoryPort } from '@job/domain/ports/job.repository.port';
-import { CreateJobDto } from '@job/application/dtos/create-job.dto';
+import { CreateJobDto } from '@job/application/dtos/create.job.dto';
 import { JobEntity } from '@job/domain/model/entities/job.entity';
 
 @Injectable()

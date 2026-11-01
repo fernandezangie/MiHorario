@@ -1,13 +1,13 @@
 import { EmployeeEntity } from '@employee/domain/model/entities/employee.entity';
-import { EmployeeCode } from '@employee/domain/model/value-objects/employee-code.vo';
-import { EmployeeEmail } from '@employee/domain/model/value-objects/employee-email.vo';
-import { EmployeeStatus } from '@employee/domain/model/enums/employee-status.enum';
+import { EmployeeCode } from '@employee/domain/model/value-objects/employee.code.vo';
+import { EmployeeEmail } from '@employee/domain/model/value-objects/employee.email.vo';
+import { EmployeeStatus } from '@employee/domain/model/enums/employee.status.enum';
 import { EmployeeRepositoryPort } from '@employee/domain/ports/employee.repository.port';
-import { CreateEmployeeDto } from '@employee/application/dtos/create-employee.dto';
+import { CreateEmployeeDto } from '@employee/application/dtos/create.employee.dto';
 import { Inject, BadRequestException } from '@nestjs/common';
 import { NotificationService } from '@shared/infrastructure/messaging/notification.service';
-import { EmployeeName } from '@employee/domain/model/value-objects/employee-name.vo';
-import { MessageCatalogService } from '@shared/infrastructure/messaging/message-catalog.service'; // <-- Importa el servicio de catálogo
+import { EmployeeName } from '@employee/domain/model/value-objects/employee.name.vo';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // <-- Importa el servicio de catálogo
 
 export class CreateEmployeeUseCase {
   constructor(

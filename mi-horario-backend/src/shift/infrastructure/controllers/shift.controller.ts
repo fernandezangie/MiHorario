@@ -1,23 +1,32 @@
-import { Controller, Post, Get, Body, Param } from '@nestjs/common';
-import { CreateShiftUseCase } from '@shift/application/use-cases/create-shift.use-case';
-import { FindShiftByIdUseCase } from '@shift/application/use-cases/find-shift-by-id.use-case';
-import { ListShiftsUseCase } from '@shift/application/use-cases/list-shifts.use-case';
-import { CreateShiftDto } from '@shift/application/dtos/create-shift.dto';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { AssignShiftToEmployeeUseCase } from '@shift/application/usecases/assign.shift.to.employee.use.case'; // <-- Usando el caso de uso con notificaciones y caché
+import { FindShiftByIdUseCase } from '@shift/application/usecases/find.shift.by.id.use.case';
+import { ListShiftsUseCase } from '@shift/application/usecases/list.shifts.use.case';
+import { AssignShiftDto } from '@shift/application/dtos/assign.shift.dto'; // <-- DTO correspondiente
 
 @Controller('shift')
 export class ShiftController {
   constructor(
-    private readonly createShiftUseCase: CreateShiftUseCase,
+    private readonly assignShiftUseCase: AssignShiftToEmployeeUseCase,
     private readonly findShiftByIdUseCase: FindShiftByIdUseCase,
     private readonly listShiftsUseCase: ListShiftsUseCase,
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateShiftDto) {
-    await this.createShiftUseCase.execute(dto);
+  @HttpCode(HttpStatus.CREATED)
+  async create(@Body() dto: AssignShiftDto) {
+    await this.assignShiftUseCase.execute(dto);
     return {
-      statusCode: 201,
-      message: 'SHIFT_CREATE',
+      statusCode: HttpStatus.CREATED,
+      message: 'Turno asignado y notificación enviada con éxito.',
     };
   }
 
