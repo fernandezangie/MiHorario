@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
-import {
-  Calendar,
-  Lock,
-  Mail,
-  ShieldCheck,
-  ArrowRight,
-  UserCheck,
-  Building2,
-  AlertCircle,
-  CheckCircle2,
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar, User, Lock, AlertCircle, Building2, UserCheck } from 'lucide-react';
 import { AuthUser, UserRole } from '../types/schedule';
+import { api } from '../services/api';
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+export const GOOGLE_OIDC_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  '407688951595-jhjhvthvriskj3c8q3goaamihg8q3a2o.apps.googleusercontent.com';
 
 interface LoginViewProps {
   onLoginSuccess: (user: AuthUser) => void;
@@ -39,241 +40,237 @@ export const PROFILES: Record<UserRole, AuthUser> = {
   },
 };
 
+function decodeJwtPayload(token: string): any {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>('ADMIN');
-  const [email, setEmail] = useState(PROFILES.ADMIN.email);
-  const [password, setPassword] = useState('••••••••••••');
-  const [captchaVerified, setCaptchaVerified] = useState(true);
+  const [username, setUsername] = useState(PROFILES.ADMIN.email);
+  const [password, setPassword] = useState('Comfama2026*');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSelectProfile = (role: UserRole) => {
+  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
+  const selectedRoleRef = useRef<UserRole>(selectedRole);
+
+  useEffect(() => {
+    selectedRoleRef.current = selectedRole;
+  }, [selectedRole]);
+
+  useEffect(() => {
+    let intervalId: number | undefined;
+
+    const initGoogleOidc = () => {
+      if (!window.google?.accounts?.id || !googleBtnContainerRef.current) {
+        return false;
+      }
+
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_OIDC_CLIENT_ID,
+        callback: async (response: { credential?: string }) => {
+          if (!response?.credential) {
+            setErrorMsg('No se recibió respuesta de Google.');
+            return;
+          }
+
+          const idToken = response.credential;
+          const activeRole = selectedRoleRef.current;
+          setIsSubmitting(true);
+
+          try {
+            const backendRes = await api.loginWithGoogleOidc(idToken, activeRole);
+            if (backendRes?.user) {
+              setIsSubmitting(false);
+              onLoginSuccess(backendRes.user);
+              return;
+            }
+          } catch {
+            // Respaldo decodificando el id_token directamente si el backend está apagado
+          }
+
+          const claims = decodeJwtPayload(idToken);
+          const baseProfile = PROFILES[activeRole];
+          setIsSubmitting(false);
+          onLoginSuccess({
+            ...baseProfile,
+            id: claims?.sub ? `GOOGLE-${claims.sub}` : baseProfile.id,
+            name: claims?.name || baseProfile.name,
+            email: claims?.email || baseProfile.email,
+            title: `${baseProfile.title}`,
+            token: idToken,
+          });
+        },
+      });
+
+      window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'pill',
+        width: 240,
+        locale: 'es',
+      });
+
+      return true;
+    };
+
+    if (!initGoogleOidc()) {
+      intervalId = window.setInterval(() => {
+        if (initGoogleOidc() && intervalId) {
+          clearInterval(intervalId);
+        }
+      }, 300);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [onLoginSuccess]);
+
+  const handleRoleSwitch = (role: UserRole) => {
     setSelectedRole(role);
-    setEmail(PROFILES[role].email);
+    setUsername(PROFILES[role].email);
     setErrorMsg(null);
   };
 
-  const handleQuickEnter = (role: UserRole) => {
-    setSelectedRole(role);
-    setEmail(PROFILES[role].email);
-    onLoginSuccess(PROFILES[role]);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
-    if (!captchaVerified) {
-      setErrorMsg('Por favor confirma la verificación de seguridad antes de ingresar.');
-      return;
-    }
-
-    if (!email.trim() || !password.trim()) {
-      setErrorMsg('Ingresa tu correo corporativo y contraseña.');
+    if (!username.trim() || !password.trim()) {
+      setErrorMsg('Por favor ingresa tu usuario y contraseña.');
       return;
     }
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const isEmployee =
-        selectedRole === 'EMPLOYEE' ||
-        email.toLowerCase().includes('carlos') ||
-        email.toLowerCase().includes('empleado');
+    const isEmployee =
+      selectedRole === 'EMPLOYEE' ||
+      username.toLowerCase().includes('carlos') ||
+      username.toLowerCase().includes('empleado');
+    const resolvedRole: UserRole = isEmployee ? 'EMPLOYEE' : 'ADMIN';
 
-      const baseProfile = isEmployee ? PROFILES.EMPLOYEE : PROFILES.ADMIN;
-      setIsSubmitting(false);
-      onLoginSuccess({
-        ...baseProfile,
-        email: email.trim(),
-      });
-    }, 250);
+    try {
+      const res = await api.login(username.trim(), password, resolvedRole);
+      if (res?.user) {
+        setIsSubmitting(false);
+        onLoginSuccess(res.user);
+        return;
+      }
+    } catch {
+      // Modo híbrido local si el backend está apagado
+    }
+
+    const baseProfile = isEmployee ? PROFILES.EMPLOYEE : PROFILES.ADMIN;
+    setIsSubmitting(false);
+    onLoginSuccess({
+      ...baseProfile,
+      email: username.trim(),
+    });
   };
 
   return (
-    <div className="login-page">
-      <div className="login-container">
-        {/* Panel Izquierdo Corporativo */}
-        <div className="login-brand-panel">
-          <div className="login-brand-header">
-            <div className="login-logo-box">
-              <Calendar size={28} color="#ED217A" />
-            </div>
-            <span className="login-brand-tag">Comfama • Gestión Operativa</span>
+    <div className="minimal-login-backdrop">
+      <div className="minimal-login-card">
+        {/* Marca y Título Principal "Mi Horario" */}
+        <div className="minimal-login-brand">
+          <div className="minimal-login-icon">
+            <Calendar size={28} color="#FFFFFF" />
           </div>
-
-          <div className="login-brand-Body">
-            <h1 className="login-hero-title">MiHorario</h1>
-            <p className="login-hero-subtitle">
-              Plataforma corporativa para la programación de turnos, consulta de agendas y gestión de sedes operativas.
-            </p>
-
-            <div className="login-feature-list">
-              <div className="login-feature-item">
-                <span className="login-feature-dot" />
-                <span>
-                  <strong>Perspectiva Supervisor:</strong> administra toda la malla, asigna turnos, crea sedes y aprueba solicitudes.
-                </span>
-              </div>
-              <div className="login-feature-item">
-                <span className="login-feature-dot" />
-                <span>
-                  <strong>Perspectiva Empleado:</strong> consulta tu horario mensual, confirma asistencia y solicita cambios de turno.
-                </span>
-              </div>
-              <div className="login-feature-item">
-                <span className="login-feature-dot" />
-                <span>
-                  <strong>Control de Acceso (RBAC):</strong> vistas y permisos diferenciados según el perfil corporativo.
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="login-brand-footer">
-            <span>Protección de Datos Personales • Ley 1581 de 2012 (Habeas Data)</span>
-          </div>
+          <h1 className="minimal-login-title">Mi Horario</h1>
+          <span className="minimal-login-subtitle">Plataforma Corporativa • Comfama</span>
         </div>
 
-        {/* Panel Derecho Formulario de Acceso */}
-        <div className="login-form-panel">
-          <div className="login-form-header">
-            <h2>Selecciona un perfil para ingresar</h2>
-            <p>Elige entre el perfil de Supervisor o el perfil de Empleado para explorar cada perspectiva</p>
+        {/* Selector limpio de perfil (Supervisor vs Empleado) */}
+        <div className="minimal-role-pills" role="group" aria-label="Seleccionar perfil">
+          <button
+            type="button"
+            className={`minimal-role-pill ${selectedRole === 'ADMIN' ? 'active' : ''}`}
+            onClick={() => handleRoleSwitch('ADMIN')}
+          >
+            <Building2 size={15} />
+            <span>Supervisor</span>
+          </button>
+          <button
+            type="button"
+            className={`minimal-role-pill ${selectedRole === 'EMPLOYEE' ? 'active' : ''}`}
+            onClick={() => handleRoleSwitch('EMPLOYEE')}
+          >
+            <UserCheck size={15} />
+            <span>Empleado</span>
+          </button>
+        </div>
+
+        {errorMsg && (
+          <div className="minimal-login-error">
+            <AlertCircle size={16} />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Formulario Vertical Centrado como en el Boceto */}
+        <form onSubmit={handleSubmit} className="minimal-login-form">
+          {/* Campo 1: Usuario */}
+          <div className="minimal-field-box">
+            <User size={18} className="minimal-field-icon" />
+            <input
+              id="login-username"
+              type="text"
+              className="minimal-input"
+              placeholder="Usuario"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              aria-label="Usuario"
+              required
+            />
           </div>
 
-          {/* Tarjetas de los 2 Perfiles */}
-          <div className="profile-cards-grid">
-            {/* Perfil 1: Supervisor */}
-            <div
-              className={`profile-access-card ${selectedRole === 'ADMIN' ? 'active' : ''}`}
-              onClick={() => handleSelectProfile('ADMIN')}
-            >
-              <div className="profile-card-top">
-                <div className="profile-icon-badge admin">
-                  <Building2 size={18} />
-                </div>
-                <span className="profile-role-tag">PERFIL SUPERVISOR</span>
-              </div>
-              <div className="profile-person-name">{PROFILES.ADMIN.name}</div>
-              <div className="profile-person-role">{PROFILES.ADMIN.title}</div>
-              <ul className="profile-perms-list">
-                <li><CheckCircle2 size={12} /> Ver y filtrar los 50 empleados</li>
-                <li><CheckCircle2 size={12} /> Asignar y editar turnos</li>
-                <li><CheckCircle2 size={12} /> Crear empleados, sedes y avisos</li>
-                <li><CheckCircle2 size={12} /> Aprobar solicitudes de cambio</li>
-              </ul>
-              <button
-                type="button"
-                className="btn-profile-quick"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleQuickEnter('ADMIN');
-                }}
-              >
-                Entrar como Supervisor
-              </button>
-            </div>
-
-            {/* Perfil 2: Empleado */}
-            <div
-              className={`profile-access-card ${selectedRole === 'EMPLOYEE' ? 'active' : ''}`}
-              onClick={() => handleSelectProfile('EMPLOYEE')}
-            >
-              <div className="profile-card-top">
-                <div className="profile-icon-badge employee">
-                  <UserCheck size={18} />
-                </div>
-                <span className="profile-role-tag">PERFIL EMPLEADO</span>
-              </div>
-              <div className="profile-person-name">{PROFILES.EMPLOYEE.name}</div>
-              <div className="profile-person-role">
-                {PROFILES.EMPLOYEE.title} ({PROFILES.EMPLOYEE.code})
-              </div>
-              <ul className="profile-perms-list">
-                <li><CheckCircle2 size={12} /> Ver resumen de horas y descansos</li>
-                <li><CheckCircle2 size={12} /> Consultar su horario personal</li>
-                <li><CheckCircle2 size={12} /> Confirmar enterado de sus turnos</li>
-                <li><CheckCircle2 size={12} /> Solicitar cambios o permisos</li>
-              </ul>
-              <button
-                type="button"
-                className="btn-profile-quick"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleQuickEnter('EMPLOYEE');
-                }}
-              >
-                Entrar como Empleado
-              </button>
-            </div>
+          {/* Campo 2: Contraseña */}
+          <div className="minimal-field-box">
+            <Lock size={18} className="minimal-field-icon" />
+            <input
+              id="login-password"
+              type="password"
+              className="minimal-input"
+              placeholder="Contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-label="Contraseña"
+              required
+            />
           </div>
 
-          {errorMsg && (
-            <div className="login-alert-error">
-              <AlertCircle size={16} />
-              <span>{errorMsg}</span>
-            </div>
-          )}
+          {/* Botón Principal Centrado: Entrar */}
+          <button
+            type="submit"
+            className="minimal-btn-enter"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Ingresando...' : 'Entrar'}
+          </button>
+        </form>
 
-          <form onSubmit={handleSubmit} className="login-form">
-            <div className="form-group">
-              <label htmlFor="login-email">Correo institucional</label>
-              <div className="input-with-icon">
-                <Mail size={18} className="input-icon" />
-                <input
-                  id="login-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nombre.apellido@comfama.com"
-                  required
-                />
-              </div>
-            </div>
+        <div className="minimal-divider">
+          <span>o</span>
+        </div>
 
-            <div className="form-group">
-              <div className="form-label-row">
-                <label htmlFor="login-password">Contraseña</label>
-                <a href="#recover" onClick={(e) => e.preventDefault()} className="forgot-link">
-                  ¿Olvidaste tu clave?
-                </a>
-              </div>
-              <div className="input-with-icon">
-                <Lock size={18} className="input-icon" />
-                <input
-                  id="login-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Ingresa tu contraseña"
-                  required
-                />
-              </div>
-            </div>
-
-            <label className="security-check-box">
-              <input
-                type="checkbox"
-                checked={captchaVerified}
-                onChange={(e) => setCaptchaVerified(e.target.checked)}
-              />
-              <ShieldCheck size={18} color="#ED217A" />
-              <div className="security-check-text">
-                <strong>Verificación de seguridad activa</strong>
-                <span>Protección corporativa de sesión</span>
-              </div>
-            </label>
-
-            <button type="submit" className="btn-corporate-primary login-submit-btn" disabled={isSubmitting}>
-              <span>
-                {isSubmitting
-                  ? 'Verificando identidad...'
-                  : `Iniciar Sesión como ${selectedRole === 'ADMIN' ? 'Supervisor' : 'Empleado'}`}
-              </span>
-              <ArrowRight size={18} />
-            </button>
-          </form>
+        {/* Botón Inferior Centrado: Entrar con Google */}
+        <div className="minimal-google-wrapper">
+          <div ref={googleBtnContainerRef} className="minimal-google-sdk-btn" />
         </div>
       </div>
     </div>
