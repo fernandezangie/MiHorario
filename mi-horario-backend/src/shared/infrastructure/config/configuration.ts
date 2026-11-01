@@ -11,7 +11,7 @@ export default () => ({
   database: {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT, 10) || 26257,
-    user: process.env.DB_USER || 'postgres',
+    user: process.env.DB_USER || '',
     password: getSecret('DB_PASSWORD', 'DB_PASSWORD_FILE') || 'postgres',
     name: process.env.DB_NAME || 'mi_horario_db',
   },

@@ -23,7 +23,9 @@ RUN npm install --omit=dev --legacy-peer-deps
 
 COPY --from=builder /usr/src/app/dist ./dist
 
-ENV PORT=8080
-EXPOSE 8080
+# Cambiado a 3000 para alinearlo con docker-compose.yml
+ENV PORT=3000
+EXPOSE 3000
 
-CMD ["npm", "run", "start:prod"]
+# Inicia directamente el proceso con Node en lugar de npm
+CMD ["node", "dist/main.js"]

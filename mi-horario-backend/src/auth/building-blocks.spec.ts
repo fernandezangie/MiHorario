@@ -32,7 +32,6 @@ describe('Verificación de Building Blocks Arquitectónicos (ADR-0001 a ADR-0011
       department: 'Dirección Parque Rionegro',
     });
 
-
     expect(typeof token).toBe('string');
     expect(token.split('.').length).toBe(3);
 
