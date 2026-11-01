@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { MessageCatalogService } from './message-catalog.service';
+import { MessageCatalogService } from './message.catalog.service';
 
 @Injectable()
 export class NotificationService {
@@ -22,17 +22,21 @@ export class NotificationService {
   ): Promise<boolean> {
     try {
       // 1. Obtener la plantilla (desde Redis o fallback)
-      let templateContent = await this.messageCatalogService.getMessageTemplate(templateCode);
+      let templateContent =
+        await this.messageCatalogService.getMessageTemplate(templateCode);
 
-      // 2. Reemplazar variables dinámicas ({employeeName}, {date}, etc.)
+      // 2. Reemplazar variables dinámicas ({startTime}, {endTime}, etc.)
+      //    split/join evita problemas con caracteres especiales de RegExp
       for (const [key, value] of Object.entries(variables)) {
-        templateContent = templateContent.replace(new RegExp(`{${key}}`, 'g'), value);
+        templateContent = templateContent
+          .split(`{${key}}`)
+          .join(String(value ?? ''));
       }
 
       // 3. Enviar el correo electrónico a través de Nodemailer
-      await this.mailerService.sendMail({
+      const info = await this.mailerService.sendMail({
         to: recipientEmail,
-        subject: subject,
+        subject,
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
             <h2 style="color: #2b6cb0;">Notificación de MiHorario</h2>
@@ -43,10 +47,31 @@ export class NotificationService {
         `,
       });
 
-      this.logger.log(`[EMAIL PASARELA] Correo enviado exitosamente a: ${recipientEmail}`);
+      this.logger.log(
+        `[EMAIL PASARELA] Correo enviado exitosamente a: ${recipientEmail}`,
+      );
+
+      // Ethereal: enlace para ver el correo sin iniciar sesión
+      // (solo funciona si el transporter es smtp.ethereal.email)
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const nodemailer = require('nodemailer');
+        const previewUrl = nodemailer.getTestMessageUrl(info);
+        if (previewUrl) {
+          this.logger.log(`[EMAIL PASARELA] Vista previa: ${previewUrl}`);
+        }
+      } catch {
+        // Si nodemailer no está accesible, simplemente no se muestra la vista previa
+      }
+
       return true;
     } catch (error) {
-      this.logger.error(`[EMAIL PASARELA] Error enviando correo a ${recipientEmail}`, error);
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(
+        `[EMAIL PASARELA] Error enviando correo a ${recipientEmail}: ${message}`,
+        stack,
+      );
       return false;
     }
   }

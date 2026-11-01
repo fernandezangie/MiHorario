@@ -1,8 +1,8 @@
 import { Entity } from '@shared/domain/entity.base';
-import { EmployeeEmail } from '@employee/domain/model/value-objects/employee-email.vo';
-import { EmployeeCode } from '@employee/domain/model/value-objects/employee-code.vo';
-import { EmployeeStatus } from '@employee/domain/model/enums/employee-status.enum';
-import { EmployeeName } from '../value-objects/employee-name.vo';
+import { EmployeeEmail } from '@employee/domain/model/value-objects/employee.email.vo';
+import { EmployeeCode } from '@employee/domain/model/value-objects/employee.code.vo';
+import { EmployeeStatus } from '@employee/domain/model/enums/employee.status.enum';
+import { EmployeeName } from '../value-objects/employee.name.vo';
 
 export class EmployeeEntity extends Entity<string> {
   private code: EmployeeCode;

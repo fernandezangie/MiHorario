@@ -2,20 +2,12 @@ import { Entity } from '@shared/domain/entity.base';
 
 export class ShiftEntity extends Entity<string> {
   private employeeId: string;
-  private jobId: string;
   private startTime: Date;
   private endTime: Date;
 
-  constructor(
-    id: string,
-    employeeId: string,
-    jobId: string,
-    startTime: Date,
-    endTime: Date,
-  ) {
+  constructor(id: string, employeeId: string, startTime: Date, endTime: Date) {
     super(id);
     this.employeeId = employeeId;
-    this.jobId = jobId;
     this.validateDates(startTime, endTime);
     this.startTime = startTime;
     this.endTime = endTime;
@@ -33,10 +25,6 @@ export class ShiftEntity extends Entity<string> {
 
   public getEmployeeId(): string {
     return this.employeeId;
-  }
-
-  public getJobId(): string {
-    return this.jobId;
   }
 
   public getStartTime(): Date {

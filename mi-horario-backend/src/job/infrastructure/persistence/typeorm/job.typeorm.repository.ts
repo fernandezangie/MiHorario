@@ -3,10 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JobRepositoryPort } from '@job/domain/ports/job.repository.port';
 import { JobEntity } from '@job/domain/model/entities/job.entity';
-import { JobOrmEntity } from './job.orm-entity';
+import { JobOrmEntity } from './job.orm.entity';
 
 @Injectable()
-export class JobTypeOrmRepository implements JobRepositoryPort {
+export class JobTypeormRepository implements JobRepositoryPort {
   constructor(
     @InjectRepository(JobOrmEntity)
     private readonly ormRepository: Repository<JobOrmEntity>,

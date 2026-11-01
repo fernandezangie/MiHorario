@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ZoneController } from './controllers/zone.controller';
-import { ZoneOrmEntity } from './persistence/typeorm/zone.orm-entity';
-import { ZoneTypeOrmRepository } from './persistence/typeorm/zone-typeorm.repository';
-import { CreateZoneUseCase } from '@zone/application/use-cases/create-zone.use-case';
-import { ListZonesUseCase } from '@zone/application/use-cases/list-zones.use-case';
+import { ZoneOrmEntity } from './persistence/typeorm/zone.orm.entity';
+import { ZoneTypeormRepository } from './persistence/typeorm/zone.typeorm.repository';
+import { CreateZoneUseCase } from '@zone/application/usecases/create.zone.use.case';
+import { ListZonesUseCase } from '@zone/application/usecases/list.zones.use.case';
 
 @Module({
   imports: [TypeOrmModule.forFeature([ZoneOrmEntity])],
@@ -14,7 +14,7 @@ import { ListZonesUseCase } from '@zone/application/use-cases/list-zones.use-cas
     ListZonesUseCase,
     {
       provide: 'ZoneRepositoryPort',
-      useClass: ZoneTypeOrmRepository,
+      useClass: ZoneTypeormRepository,
     },
   ],
   exports: [CreateZoneUseCase, ListZonesUseCase],

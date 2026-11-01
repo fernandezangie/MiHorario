@@ -1,8 +1,8 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { EmployeeRepositoryPort } from '@employee/domain/ports/employee.repository.port';
-import { UpdateEmployeeDto } from '@employee/application/dtos/update-employee.dto';
-import { EmployeeEmail } from '@employee/domain/model/value-objects/employee-email.vo';
-import { MessageCatalogService } from '@shared/infrastructure/messaging/message-catalog.service'; // <-- Importa el servicio
+import { UpdateEmployeeDto } from '@employee/application/dtos/update.employee.dto';
+import { EmployeeEmail } from '@employee/domain/model/value-objects/employee.email.vo';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // <-- Importa el servicio
 
 @Injectable()
 export class UpdateEmployeeUseCase {

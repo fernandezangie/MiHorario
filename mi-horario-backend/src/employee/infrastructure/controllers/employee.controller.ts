@@ -1,7 +1,14 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { CreateEmployeeUseCase } from '@employee/application/usecases/create.employee.use.case';
-import { ListEmployeesUseCase } from '@employee/application/usecases/list-employees.use-case';
-import { CreateEmployeeDto } from '@employee/application/dtos/create-employee.dto';
+import { ListEmployeesUseCase } from '@employee/application/usecases/list.employees.use.case';
+import { CreateEmployeeDto } from '@employee/application/dtos/create.employee.dto';
 
 @Controller('employees')
 export class EmployeeController {
@@ -11,8 +18,13 @@ export class EmployeeController {
   ) {}
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateEmployeeDto) {
-    return await this.createEmployeeUseCase.execute(dto);
+    await this.createEmployeeUseCase.execute(dto);
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: 'Empleado registrado y notificación enviada con éxito.',
+    };
   }
 
   @Get()

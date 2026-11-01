@@ -1,8 +1,8 @@
 import { Controller, Post, Get, Body, Param } from '@nestjs/common';
-import { CreateRestrictionUseCase } from '@restriction/application/use-cases/create-restriction.use-case';
-import { FindRestrictionsByEmployeeUseCase } from '@restriction/application/use-cases/find-restrictions-by-employee.use-case';
-import { CreateRestrictionDto } from '@restriction/application/dtos/create-restriction.dto';
-import { MessageCatalogService } from '@shared/infrastructure/messaging/message-catalog.service'; // <-- Importa el servicio
+import { CreateRestrictionUseCase } from '@restriction/application/usecases/create.restriction.use.case';
+import { FindRestrictionsByEmployeeUseCase } from '@restriction/application/usecases/find.restrictions.by.employee.use.case';
+import { CreateRestrictionDto } from '@restriction/application/dtos/create.restriction.dto';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // <-- Importa el servicio
 
 @Controller('restriction')
 export class RestrictionController {

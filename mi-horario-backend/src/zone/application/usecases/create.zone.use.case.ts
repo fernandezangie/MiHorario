@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ZoneRepositoryPort } from '@zone/domain/ports/zone.repository.port';
-import { CreateZoneDto } from '@zone/application/dtos/create-zone.dto';
+import { CreateZoneDto } from '@zone/application/dtos/create.zone.dto';
 import { ZoneEntity } from '@zone/domain/model/entities/zone.entity';
 
 @Injectable()

@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { JobRepositoryPort } from '@job/domain/ports/job.repository.port';
 import { JobEntity } from '@job/domain/model/entities/job.entity';
-import { MessageCatalogService } from '@shared/infrastructure/messaging/message-catalog.service'; // <-- Importa el servicio
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // <-- Importa el servicio
 
 @Injectable()
 export class FindJobByIdUseCase {

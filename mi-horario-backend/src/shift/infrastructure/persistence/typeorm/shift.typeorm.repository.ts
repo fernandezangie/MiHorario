@@ -8,32 +8,44 @@ import {
 } from 'typeorm';
 import { ShiftRepositoryPort } from '@shift/domain/ports/shift.repository.port';
 import { ShiftEntity } from '@shift/domain/model/entities/shift.entity';
-import { ShiftOrmEntity } from './shift.orm-entity';
+import { ShiftOrmEntity } from './shift.orm.entity';
 
 @Injectable()
-export class ShiftTypeOrmRepository implements ShiftRepositoryPort {
+export class ShiftTypeormRepository implements ShiftRepositoryPort {
   constructor(
     @InjectRepository(ShiftOrmEntity)
     private readonly ormRepository: Repository<ShiftOrmEntity>,
-    private readonly dataSource: DataSource, // <--- Inyectamos el DataSource para manejar transacciones
+    private readonly dataSource: DataSource,
   ) {}
+
+  private extractValue(prop: any): any {
+    if (prop === null || prop === undefined) return prop;
+    if (typeof prop.getValue === 'function') return prop.getValue();
+    if (typeof prop.value !== 'undefined') return prop.value;
+    return prop;
+  }
+
+  private parseDate(dateProp: any): Date {
+    const val = this.extractValue(dateProp);
+    return val instanceof Date ? val : new Date(val);
+  }
 
   async save(shift: ShiftEntity): Promise<void> {
     const s = shift as any;
     const maxRetries = 3;
     let attempt = 0;
 
+    const employeeId = this.extractValue(s.employeeId);
+    const startTime = this.parseDate(s.startTime);
+    const endTime = this.parseDate(s.endTime);
+
     while (attempt < maxRetries) {
       const queryRunner = this.dataSource.createQueryRunner();
       await queryRunner.connect();
-      await queryRunner.startTransaction('SERIALIZABLE'); // <--- Nivel estricto para control de concurrencia
+      await queryRunner.startTransaction('SERIALIZABLE');
 
       try {
-        const employeeId = s.employeeId?.value ?? s.employeeId;
-        const startTime = s.startTime?.value ?? s.startTime;
-        const endTime = s.endTime?.value ?? s.endTime;
-
-        // 1. Validación de solapamiento (Doble Candado) dentro de la transacción
+        // 1. Validación de solapamiento
         const overlapping = await queryRunner.manager.findOne(ShiftOrmEntity, {
           where: {
             employeeId,
@@ -50,7 +62,7 @@ export class ShiftTypeOrmRepository implements ShiftRepositoryPort {
 
         // 2. Preparar entidad ORM
         const ormEntity = new ShiftOrmEntity();
-        ormEntity.id = s.id?.value ?? s.id;
+        ormEntity.id = this.extractValue(s.id);
         ormEntity.employeeId = employeeId;
         ormEntity.startTime = startTime;
         ormEntity.endTime = endTime;
@@ -61,7 +73,7 @@ export class ShiftTypeOrmRepository implements ShiftRepositoryPort {
       } catch (error) {
         await queryRunner.rollbackTransaction();
 
-        // 3. Manejo de reintentos automáticos para el código de error 40001 de CockroachDB
+        // Manejo de reintentos CockroachDB (error 40001)
         if (error.code === '40001' && attempt < maxRetries - 1) {
           attempt++;
           await new Promise((resolve) =>
@@ -82,8 +94,7 @@ export class ShiftTypeOrmRepository implements ShiftRepositoryPort {
   }
 
   async findById(id: any): Promise<ShiftEntity | null> {
-    const rawId =
-      typeof id === 'object' && id !== null && 'value' in id ? id.value : id;
+    const rawId = this.extractValue(id);
     const found = await this.ormRepository.findOne({ where: { id: rawId } });
     if (!found) return null;
 
