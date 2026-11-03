@@ -4,10 +4,10 @@ import { AuthController } from './controllers/auth.controller';
 import { AuthService } from '../application/auth.service';
 import { UserOrmEntity } from './persistence/typeorm/user.orm.entity';
 import { EmployeeOrmEntity } from '../../employee/infrastructure/persistence/typeorm/employee.orm.entity';
-import { JwtTokenService } from '@shared/infrastructure/security/jwt-token.service';
-import { JwtAuthGuard } from '@shared/infrastructure/security/jwt-auth.guard';
+import { JwtTokenService } from '@shared/infrastructure/security/jwt.token.service';
+import { JwtAuthGuard } from '@shared/infrastructure/security/jwt.auth.guard';
 import { RolesGuard } from '@shared/infrastructure/security/roles.guard';
-import { RateLimitGuard } from '@shared/infrastructure/security/rate-limit.guard';
+import { RateLimitGuard } from '@shared/infrastructure/security/rate.limit.guard';
 
 @Global()
 @Module({

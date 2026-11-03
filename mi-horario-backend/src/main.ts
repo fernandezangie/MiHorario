@@ -5,9 +5,6 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  // Habilitar CORS para permitir peticiones desde el Frontend React + Vite (ADR-0007 / ADR-0009)
-  // CORS_ORIGIN admite varios orígenes separados por coma. Si no se define, se acepta cualquiera (solo desarrollo).
   const corsOrigin = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
     : true;
@@ -18,7 +15,6 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Blindaje de entrada global contra Mass Assignment e Inyecciones (ADR-0005 / OWASP A03)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -28,8 +24,6 @@ async function bootstrap() {
   );
 
   const port = process.env.PORT || 3000;
-
-  // Escuchar en 0.0.0.0 es obligatorio para que Cloud Run, Render y Docker acepten el tráfico externo
   await app.listen(port, '0.0.0.0');
 
   console.log(`Application is running on: http://0.0.0.0:${port}`);

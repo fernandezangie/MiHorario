@@ -9,11 +9,6 @@ import { randomUUID } from 'crypto';
 import { Observable, tap } from 'rxjs';
 import { AuditService } from '../../../audit/application/audit.service';
 
-/**
- * Building Block: Structured Logging & Traceability Interceptor (ADR-0005 / ADR-0011)
- * Asigna un X-Request-Id único por transacción, emite logs estructurados JSON
- * y alimenta automáticamente la bitácora de auditoría en operaciones de escritura.
- */
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger('HTTP-Traceability');

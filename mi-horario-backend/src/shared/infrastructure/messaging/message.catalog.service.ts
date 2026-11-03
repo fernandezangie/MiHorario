@@ -1,10 +1,33 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
 @Injectable()
-export class MessageCatalogService {
+export class MessageCatalogService implements OnModuleInit {
   constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+
+  async onModuleInit() {
+    await this.seedMessagesToRedis();
+  }
+
+  private async seedMessagesToRedis() {
+    try {
+      const store: any = this.cacheManager.store;
+      const client =
+        store.client ||
+        (typeof store.getClient === 'function' ? store.getClient() : null);
+
+      if (!client) {
+        return;
+      }
+
+      const lang = 'es';
+      const hashKey = `messages:${lang}`;
+
+    } catch (error) {
+      console.error('Error al inicializar el catálogo en Redis:', error);
+    }
+  }
 
   async getMessage(
     code: string,
@@ -19,7 +42,6 @@ export class MessageCatalogService {
     try {
       const store: any = this.cacheManager.store;
 
-      // Intentamos obtener el cliente subyacente de las formas compatibles con cache-manager-redis-yet
       const client =
         store.client ||
         (typeof store.getClient === 'function' ? store.getClient() : null);

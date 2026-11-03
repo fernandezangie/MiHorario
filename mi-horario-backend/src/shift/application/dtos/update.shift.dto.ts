@@ -16,4 +16,12 @@ export class UpdateShiftDto {
   @IsOptional()
   @IsString()
   location?: string;
+
+  @IsOptional()
+  @IsString()
+  zone?: string;
+
+  @IsOptional()
+  @IsString()
+  jobId?: string; //
 }

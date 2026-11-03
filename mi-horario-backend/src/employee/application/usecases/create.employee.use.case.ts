@@ -7,18 +7,18 @@ import { CreateEmployeeDto } from '@employee/application/dtos/create.employee.dt
 import { Inject, BadRequestException } from '@nestjs/common';
 import { NotificationService } from '@shared/infrastructure/messaging/notification.service';
 import { EmployeeName } from '@employee/domain/model/value-objects/employee.name.vo';
-import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // <-- Importa el servicio de catálogo
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; //
 
 export class CreateEmployeeUseCase {
   constructor(
     @Inject('EmployeeRepositoryPort')
     private readonly employeeRepository: EmployeeRepositoryPort,
     private readonly notificationService: NotificationService,
-    private readonly messageCatalogService: MessageCatalogService, // <-- Inyectamos el catálogo de mensajes
+    private readonly messageCatalogService: MessageCatalogService,
   ) {}
 
   async execute(dto: CreateEmployeeDto): Promise<void> {
-    // Opcional: Validar si ya existe el empleado usando el catálogo para errores de negocio
+
     const existingEmployee = await this.employeeRepository.findById(dto.code);
     if (existingEmployee) {
       const errorMessage = await this.messageCatalogService.getMessage(
@@ -50,7 +50,7 @@ export class CreateEmployeeUseCase {
     await this.notificationService.sendEmailNotification(
       'WELCOME_EMPLOYEE',
       employee.getEmail().getValue(),
-      welcomeSubject, // <-- Asunto obtenido desde Redis
+      welcomeSubject, //
       {
         code: employee.getCode().getValue(),
         name: employee.getName().getValue(),

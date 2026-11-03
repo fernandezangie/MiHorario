@@ -1,24 +1,29 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { AuditService } from '../../application/audit.service';
 import { Roles } from '@shared/infrastructure/security/roles.decorator';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // 👈 Asegúrate de ajustar la ruta si es necesario
 
-/**
- * Building Block: Audit Trail Controller (ADR-0006)
- * Permite a los Supervisores/Auditores consultar el historial inmutable de cambios.
- */
 @Controller('audit-logs')
 export class AuditController {
-  constructor(private readonly auditService: AuditService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    private readonly messageCatalogService: MessageCatalogService, // 👈 Inyectamos el catálogo
+  ) {}
 
   @Roles('ADMIN')
   @Get()
-  listAuditLogs(@Query('limit') limit?: string) {
+  async listAuditLogs(@Query('limit') limit?: string) {
     const parsedLimit = limit ? parseInt(limit, 10) : 50;
+
+    const complianceText = await this.messageCatalogService.getMessage(
+      'LEY_VALUE',
+      'es',
+    );
+
     return {
-      compliance: 'Ley 1581 de 2012 (Habeas Data) - ADR-0006',
+      compliance: complianceText,
       total: this.auditService.findAll(parsedLimit).length,
       logs: this.auditService.findAll(parsedLimit),
     };
   }
 }
-

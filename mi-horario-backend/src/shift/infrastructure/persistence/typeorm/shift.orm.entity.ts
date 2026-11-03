@@ -24,5 +24,11 @@ export class ShiftOrmEntity {
   acknowledged: boolean;
 
   @Column({ type: 'boolean', default: false, name: 'isRest' })
-  isRest: boolean; // 👈 Agregado para soportar la Opción 2
+  isRest: boolean;
+
+  @Column({ type: 'varchar', nullable: true, name: 'zoneId' })
+  zoneId: string | null;
+
+  @Column({ type: 'varchar', nullable: true, name: 'jobId' })
+  jobId: string | null; //
 }

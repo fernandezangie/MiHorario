@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   DataSource,
@@ -9,6 +9,7 @@ import {
 import { ShiftRepositoryPort } from '@shift/domain/ports/shift.repository.port';
 import { ShiftEntity } from '@shift/domain/model/entities/shift.entity';
 import { ShiftOrmEntity } from './shift.orm.entity';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // 👈 Importamos el servicio
 
 @Injectable()
 export class ShiftTypeormRepository implements ShiftRepositoryPort {
@@ -16,6 +17,7 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
     @InjectRepository(ShiftOrmEntity)
     private readonly ormRepository: Repository<ShiftOrmEntity>,
     private readonly dataSource: DataSource,
+    private readonly messageCatalogService: MessageCatalogService,
   ) {}
 
   private extractValue(prop: any): any {
@@ -27,7 +29,7 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
 
   private parseDate(dateProp: any): Date | null {
     const val = this.extractValue(dateProp);
-    if (!val) return null; // Si es null o undefined (como en los días libres), lo permite
+    if (!val) return null;
     return val instanceof Date ? val : new Date(val);
   }
 
@@ -47,11 +49,20 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
         ? s.isAcknowledged()
         : (this.extractValue(s.acknowledged) ?? false);
 
-    // Extraemos isRest de la entidad
     const isRest =
       typeof s.getIsRest === 'function'
         ? s.getIsRest()
         : (this.extractValue(s.isRest) ?? false);
+
+    const zone =
+      typeof s.getZone === 'function'
+        ? s.getZone()
+        : (this.extractValue(s.zone) ?? null);
+
+    const job =
+      typeof s.getJob === 'function'
+        ? s.getJob()
+        : (this.extractValue(s.job) ?? null);
 
     while (attempt < maxRetries) {
       const queryRunner = this.dataSource.createQueryRunner();
@@ -59,7 +70,6 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
       await queryRunner.startTransaction('SERIALIZABLE');
 
       try {
-        // Si es un día libre (isRest === true), permitimos startTime/endTime nulos y evitamos validación estricta de solapamiento si aplica, o validamos con fechas reales
         if (!isRest && startTime && endTime) {
           const overlapping = await queryRunner.manager.findOne(
             ShiftOrmEntity,
@@ -73,9 +83,11 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
           );
 
           if (overlapping && overlapping.id !== shiftId) {
-            throw new ConflictException(
-              'El empleado ya cuenta con un turno asignado que se solapa en este horario.',
+            const msg = await this.messageCatalogService.getMessage(
+              'SHIFT_OVERLAP_CONFLICT',
+              'es',
             );
+            throw new ConflictException(msg);
           }
         }
 
@@ -86,7 +98,9 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
         ormEntity.endTime = endTime;
         ormEntity.status = status;
         ormEntity.acknowledged = acknowledged;
-        ormEntity.isRest = isRest; // 👈 ¡Guardado de isRest corregido!
+        ormEntity.isRest = isRest;
+        ormEntity.zoneId = zone;
+        ormEntity.jobId = job;
 
         await queryRunner.manager.save(ormEntity);
         await queryRunner.commitTransaction();
@@ -96,8 +110,8 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
 
         if (error.code === '40001' && attempt < maxRetries) {
           attempt++;
-          await new Promise((resolve) =>
-            setTimeout(resolve, 50 * Math.pow(2, attempt)),
+          await new Promise(
+            (resolve) => setTimeout(resolve, 50 * Math.pow(2, attempt)), // 👈 Sintaxis corregida con el operador *
           );
           continue;
         }
@@ -108,9 +122,11 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
       }
     }
 
-    throw new ConflictException(
-      'No se pudo procesar la transacción debido a alta concurrencia. Intente de nuevo.',
+    const concurrencyMsg = await this.messageCatalogService.getMessage(
+      'SHIFT_CONCURRENCY_ERROR',
+      'es',
     );
+    throw new ConflictException(concurrencyMsg);
   }
 
   async findById(id: any): Promise<ShiftEntity | null> {
@@ -126,7 +142,9 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
       endTime: found.endTime,
       status: found.status,
       acknowledged: found.acknowledged ?? false,
-      isRest: found.isRest ?? false, // 👈 ¡Cargado de isRest corregido!
+      isRest: found.isRest ?? false,
+      zone: found.zoneId ?? null,
+      job: found.jobId ?? null,
     });
   }
 
@@ -141,7 +159,9 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
         endTime: item.endTime,
         status: item.status,
         acknowledged: item.acknowledged ?? false,
-        isRest: item.isRest ?? false, // 👈 ¡Cargado de isRest corregido!
+        isRest: item.isRest ?? false,
+        zone: item.zoneId ?? null,
+        job: item.jobId ?? null,
       });
     });
   }

@@ -1,24 +1,29 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { ShiftRepositoryPort } from '@shift/domain/ports/shift.repository.port';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
 
 @Injectable()
 export class AcknowledgeShiftUseCase {
   constructor(
     @Inject('ShiftRepositoryPort')
     private readonly shiftRepository: ShiftRepositoryPort,
+    private readonly messageCatalogService: MessageCatalogService,
   ) {}
 
   async execute(shiftId: string): Promise<void> {
     const shift = await this.shiftRepository.findById(shiftId);
 
     if (!shift) {
-      throw new NotFoundException(`Turno con ID ${shiftId} no encontrado.`);
+      const message = await this.messageCatalogService.getMessage(
+        'SHIFT_NOT_FOUND',
+        'es',
+        { shiftId },
+      );
+
+      throw new NotFoundException(message);
     }
 
-    // Llamamos al método público de la entidad para cambiar el estado de forma segura
     shift.acknowledge();
-
-    // Guardamos los cambios
     await this.shiftRepository.save(shift);
   }
 }

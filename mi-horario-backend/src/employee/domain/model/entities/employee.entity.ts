@@ -46,7 +46,7 @@ export class EmployeeEntity extends Entity<string> {
 
   public updateEmail(newEmail: EmployeeEmail): void {
     if (!newEmail) {
-      // Usamos un código de error o excepción estándar limpia
+
       throw new Error('EMPLOYEE_EMAIL_NULL_ERROR');
     }
     this.email = newEmail;

@@ -13,58 +13,52 @@ import {
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
-/**
- * DTO de registro. Rechaza cualquier campo que no esté declarado aquí (whitelist).
- */
 export class RegisterDto {
-  /** Obligatorio para supervisores. Los colaboradores usan el nombre de su registro. */
+
   @ValidateIf((o) => o.role === 'ADMIN')
   @Transform(trim)
   @IsString()
-  @IsNotEmpty({ message: 'El nombre es obligatorio.' })
+  @IsNotEmpty({ message: 'REGISTER_NAME_REQUIRED' })
   @MaxLength(120)
   @Matches(/^[^;'"\\<>]+$/, {
-    message:
-      'El nombre contiene caracteres bloqueados por prevención de inyección.',
+    message: 'REGISTER_NAME_INVALID_CHARS',
   })
   name?: string;
 
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
-  @IsEmail({}, { message: 'Ingresa un correo electrónico válido.' })
+  @IsEmail({}, { message: 'REGISTER_EMAIL_INVALID' })
   @MaxLength(120)
   email: string;
 
   @IsString()
-  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres.' })
+  @MinLength(8, { message: 'REGISTER_PASSWORD_MIN_LENGTH' })
   @MaxLength(128)
   @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
-    message: 'La contraseña debe combinar letras y números.',
+    message: 'REGISTER_PASSWORD_COMPLEXITY',
   })
   password: string;
 
   @IsIn(['ADMIN', 'EMPLOYEE'], {
-    message: 'El perfil debe ser ADMIN o EMPLOYEE.',
+    message: 'REGISTER_ROLE_INVALID',
   })
   role: 'ADMIN' | 'EMPLOYEE';
 
-  /** Código de nómina: obligatorio para colaboradores (debe existir en "employees"). */
   @ValidateIf((o) => o.role === 'EMPLOYEE')
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toUpperCase() : value,
   )
   @IsString()
-  @IsNotEmpty({ message: 'El código de colaborador es obligatorio.' })
+  @IsNotEmpty({ message: 'REGISTER_CODE_REQUIRED' })
   @Matches(/^[A-Z0-9][A-Z0-9-]{3,24}$/, {
-    message: 'El código solo admite letras, números y guiones (mínimo 4).',
+    message: 'REGISTER_CODE_INVALID_FORMAT',
   })
   code?: string;
 
-  /** Clave de registro de supervisores (la define el servidor). */
   @ValidateIf((o) => o.role === 'ADMIN')
   @IsString()
-  @IsNotEmpty({ message: 'La clave de registro de supervisor es obligatoria.' })
+  @IsNotEmpty({ message: 'REGISTER_REGISTRATION_KEY_REQUIRED' })
   @MaxLength(128)
   registrationKey?: string;
 }

@@ -7,9 +7,9 @@ export class JobInMemoryRepository implements JobRepositoryPort {
   async save(job: JobEntity): Promise<void> {
     const index = this.jobs.findIndex((j) => j.getId() === job.getId());
     if (index !== -1) {
-      this.jobs[index] = job; // Actualiza si ya existe
+      this.jobs[index] = job;
     } else {
-      this.jobs.push(job); // Inserta si es nuevo
+      this.jobs.push(job);
     }
   }
 

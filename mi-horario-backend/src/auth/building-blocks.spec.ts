@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { JwtTokenService } from '@shared/infrastructure/security/jwt-token.service';
+import { JwtTokenService } from '@shared/infrastructure/security/jwt.token.service';
 import { AuditService } from '../audit/application/audit.service';
 import { HealthController } from '../health/infrastructure/controllers/health.controller';
 import { validationSchema } from '@shared/infrastructure/config/environment.validation';
@@ -13,7 +13,15 @@ describe('Verificación de Building Blocks Arquitectónicos (ADR-0001 a ADR-0011
     const configService = new ConfigService({
       JWT_SECRET: 'comfama-mihorario-jwt-secret-key-2026-adr0006',
     });
-    jwtService = new JwtTokenService(configService);
+
+    // 👈 Creamos un mock del MessageCatalogService para cumplir con las dependencias del constructor
+    const mockMessageCatalogService = {
+      getMessage: jest.fn().mockImplementation(async (code) => code),
+      getMessageTemplate: jest.fn().mockImplementation(async (code) => code),
+    } as any;
+
+    // 👈 Pasamos el mock como segundo argumento
+    jwtService = new JwtTokenService(configService, mockMessageCatalogService);
     auditService = new AuditService();
     healthController = new HealthController();
   });

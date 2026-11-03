@@ -1,10 +1,5 @@
 import { getSecret } from './secret.loader';
 
-/**
- * Building Block: Secret Manager Configuration Loader (ADR-0001)
- * Centraliza la lectura de variables de entorno y archivos de secretos evitando el uso directo de process.env
- * disperso en las capas de dominio o aplicación.
- */
 export default () => ({
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT, 10) || 3000,

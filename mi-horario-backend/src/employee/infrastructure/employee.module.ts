@@ -21,7 +21,7 @@ import { SharedModule } from '@shared/infrastructure/shared.module';
   exports: [
     CreateEmployeeUseCase,
     ListEmployeesUseCase,
-    'EmployeeRepositoryPort', // 👈 ¡Agregado aquí para que ShiftModule pueda usarlo!
+    'EmployeeRepositoryPort',
   ],
 })
 export class EmployeeModule {}

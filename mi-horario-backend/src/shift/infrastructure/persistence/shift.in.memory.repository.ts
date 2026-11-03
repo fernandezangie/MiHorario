@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { ShiftRepositoryPort } from '@shift/domain/ports/shift.repository.port';
 import { ShiftEntity } from '@shift/domain/model/entities/shift.entity';
 import { ShiftOrmEntity } from '@shift/infrastructure/persistence/typeorm/shift.orm.entity';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
 
 @Injectable()
 export class ShiftTypeormRepository implements ShiftRepositoryPort {
@@ -11,6 +12,7 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
     @InjectRepository(ShiftOrmEntity)
     private readonly ormRepository: Repository<ShiftOrmEntity>,
     private readonly dataSource: DataSource,
+    private readonly messageCatalogService: MessageCatalogService,
   ) {}
 
   private extractValue(prop: any): any {
@@ -34,7 +36,6 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
     const shiftId = this.extractValue(shift.getId());
     const employeeId = this.extractValue(shift.getEmployeeId());
 
-    // Fechas limpias convertidas a ISO string para la base de datos
     const startTimeObj = this.parseDate(shift.getStartTime());
     const endTimeObj = this.parseDate(shift.getEndTime());
 
@@ -47,7 +48,6 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
       await queryRunner.startTransaction('SERIALIZABLE');
 
       try {
-        // 1. Validación de solapamiento mediante SQL nativo seguro (Evita errores de parseo del ORM con timestamptz)
         const overlapping = await queryRunner.manager.query(
           `SELECT id FROM shifts 
            WHERE "employeeId" = $1 
@@ -58,12 +58,13 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
         );
 
         if (overlapping && overlapping.length > 0) {
-          throw new ConflictException(
-            'El empleado ya cuenta con un turno asignado que se solapa en este horario.',
+          const msg = await this.messageCatalogService.getMessage(
+            'SHIFT_OVERLAP_CONFLICT',
+            'es',
           );
+          throw new ConflictException(msg);
         }
 
-        // 2. Preparar entidad ORM para guardar
         const ormEntity = new ShiftOrmEntity();
         ormEntity.id = shiftId;
         ormEntity.employeeId = employeeId;
@@ -76,7 +77,6 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
       } catch (error) {
         await queryRunner.rollbackTransaction();
 
-        // Manejo de reintentos CockroachDB (error 40001)
         if (error.code === '40001' && attempt < maxRetries - 1) {
           attempt++;
           await new Promise((resolve) =>
@@ -91,9 +91,11 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
       }
     }
 
-    throw new ConflictException(
-      'No se pudo procesar la transacción debido a alta concurrencia. Intente de nuevo.',
+    const concurrencyMsg = await this.messageCatalogService.getMessage(
+      'SHIFT_CONCURRENCY_ERROR',
+      'es',
     );
+    throw new ConflictException(concurrencyMsg);
   }
 
   async findById(id: any): Promise<ShiftEntity | null> {

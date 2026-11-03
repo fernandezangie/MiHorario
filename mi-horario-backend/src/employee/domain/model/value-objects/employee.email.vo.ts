@@ -12,7 +12,7 @@ export class EmployeeEmail {
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      // Opcional: puedes adjuntar el valor si tu sistema lo parsea, o usar un código limpio
+
       throw new Error(`EMPLOYEE_EMAIL_INVALID_FORMAT`);
     }
   }

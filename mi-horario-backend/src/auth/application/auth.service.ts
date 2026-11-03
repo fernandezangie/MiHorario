@@ -13,9 +13,9 @@ import { EmployeeOrmEntity } from '../../employee/infrastructure/persistence/typ
 import { UserOrmEntity } from '../infrastructure/persistence/typeorm/user.orm.entity';
 import { RegisterDto } from '../infrastructure/dtos/register.dto';
 import { hashPassword, verifyPassword } from './password.hasher';
+import { MessageCatalogService } from '../../shared/infrastructure/messaging/message.catalog.service';
 
-// Hash de relleno: se usa cuando el correo no existe para mitigar diferencias de tiempo extremos.
-const DUMMY_HASH = hashPassword('contraseña-de-relleno-no-valida');
+const DUMMY_HASH = hashPassword('HASH_PASSWORD');
 
 @Injectable()
 export class AuthService {
@@ -25,16 +25,18 @@ export class AuthService {
     @InjectRepository(EmployeeOrmEntity)
     private readonly employees: Repository<EmployeeOrmEntity>,
     private readonly config: ConfigService,
+    private readonly messageCatalogService: MessageCatalogService,
   ) {}
 
-  /** Registra una cuenta nueva. Solo entra quien cumpla las reglas de su perfil. */
   async register(dto: RegisterDto): Promise<UserOrmEntity> {
     const email = dto.email.toLowerCase().trim();
 
     if (await this.users.findOne({ where: { email } })) {
-      throw new ConflictException(
-        'Ya existe una cuenta registrada con ese correo.',
+      const msg = await this.messageCatalogService.getMessage(
+        'EMAIL_EXIST',
+        'es',
       );
+      throw new ConflictException(msg);
     }
 
     let name = (dto.name ?? '').trim();
@@ -42,23 +44,25 @@ export class AuthService {
     let employeeId: string | null = null;
 
     if (dto.role === 'ADMIN') {
-      this.assertSupervisorKey(dto.registrationKey);
+      await this.assertSupervisorKey(dto.registrationKey); // 👈 Ahora es await
       code = `SUP-${randomUUID().slice(0, 6).toUpperCase()}`;
     } else {
-      // Colaborador: debe existir en "employees" con ese código Y ese correo.
       const employee = await this.employees.findOne({
         where: { id: dto.code },
       });
       if (!employee || employee.email.toLowerCase().trim() !== email) {
-        throw new ForbiddenException(
-          'No encontramos un colaborador registrado con ese código y correo. ' +
-            'Pide a tu supervisor que te registre primero.',
+        const msg = await this.messageCatalogService.getMessage(
+          'USER_NOT_REGISTER',
+          'es',
         );
+        throw new ForbiddenException(msg);
       }
       if (await this.users.findOne({ where: { employeeId: employee.id } })) {
-        throw new ConflictException(
-          'Este colaborador ya tiene una cuenta creada.',
+        const msg = await this.messageCatalogService.getMessage(
+          'EMPLOYEE_EXIST',
+          'es',
         );
+        throw new ConflictException(msg);
       }
       code = employee.id;
       employeeId = employee.id;
@@ -79,15 +83,16 @@ export class AuthService {
       return await this.users.save(user);
     } catch (err: any) {
       if (err?.code === '23505') {
-        throw new ConflictException(
-          'Ya existe una cuenta registrada con ese correo.',
+        const msg = await this.messageCatalogService.getMessage(
+          'EXIST_EMAIL_ACCOUNT',
+          'es',
         );
+        throw new ConflictException(msg);
       }
       throw err;
     }
   }
 
-  /** Valida correo + contraseña devolviendo mensajes explícitos para cada caso. */
   async validateCredentials(
     emailRaw: string,
     password: string,
@@ -95,24 +100,27 @@ export class AuthService {
     const email = (emailRaw || '').toLowerCase().trim();
     const user = await this.users.findOne({ where: { email } });
 
-    // 1. Si el correo no existe en la base de datos
     if (!user) {
-      await verifyPassword(password, await DUMMY_HASH); // consumo de tiempo uniforme
-      throw new NotFoundException(
-        'El usuario no está registrado en el sistema.',
+      await verifyPassword(password, await DUMMY_HASH);
+      const errorMsg = await this.messageCatalogService.getMessage(
+        'EMPLOYEE_NOT_SYSYEM',
+        'es',
       );
+      throw new NotFoundException(errorMsg);
     }
 
-    // 2. Si el correo existe pero la contraseña no coincide
     const passwordOk = await verifyPassword(password, user.passwordHash);
     if (!passwordOk) {
-      throw new UnauthorizedException('La contraseña es incorrecta.');
+      const errorMsg = await this.messageCatalogService.getMessage(
+        'PASSWORD_INCORRECT',
+        'es',
+      );
+      throw new UnauthorizedException(errorMsg);
     }
 
     return user;
   }
 
-  /** Datos que viajan dentro del token JWT. */
   buildSessionProfile(user: UserOrmEntity) {
     const role = user.role as 'ADMIN' | 'EMPLOYEE';
     const isAdmin = role === 'ADMIN';
@@ -131,19 +139,23 @@ export class AuthService {
     };
   }
 
-  private assertSupervisorKey(provided?: string): void {
+  private async assertSupervisorKey(provided?: string): Promise<void> {
     const expected = this.config.get<string>('SUPERVISOR_REGISTRATION_KEY');
     if (!expected) {
-      throw new ForbiddenException(
-        'El registro de supervisores no está habilitado en el servidor.',
+      const msg = await this.messageCatalogService.getMessage(
+        'SUPERVISOR_REGISTRATION_DISABLED',
+        'es',
       );
+      throw new ForbiddenException(msg);
     }
     const a = Buffer.from(provided ?? '');
     const b = Buffer.from(expected);
     if (a.length !== b.length || !timingSafeEqual(a, b)) {
-      throw new ForbiddenException(
-        'La clave de registro de supervisor no es válida.',
+      const msg = await this.messageCatalogService.getMessage(
+        'SUPERVISOR_KEY_INVALID',
+        'es',
       );
+      throw new ForbiddenException(msg);
     }
   }
 }

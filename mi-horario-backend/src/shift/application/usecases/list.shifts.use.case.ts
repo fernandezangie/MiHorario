@@ -6,7 +6,7 @@ import { CacheService } from '@shared/infrastructure/cache/cache.service';
 @Injectable()
 export class ListShiftsUseCase {
   private readonly CACHE_KEY = 'shifts:all_active';
-  private readonly CACHE_TTL = 300; // 5 minutos en segundos
+  private readonly CACHE_TTL = 300;
 
   constructor(
     @Inject('ShiftRepositoryPort')
@@ -15,7 +15,6 @@ export class ListShiftsUseCase {
   ) {}
 
   async execute(): Promise<ShiftEntity[]> {
-    // 1. Intentar obtener los turnos desde Redis Cloud
     const cachedShifts = await this.cacheService.get<ShiftEntity[]>(
       this.CACHE_KEY,
     );
@@ -23,10 +22,7 @@ export class ListShiftsUseCase {
       return cachedShifts;
     }
 
-    // 2. Si no están en caché, consultar a CockroachDB mediante el puerto del repositorio
     const shifts = await this.shiftRepository.findAll();
-
-    // 3. Guardar el resultado en Redis por el tiempo definido (TTL)
     await this.cacheService.set(this.CACHE_KEY, shifts, this.CACHE_TTL);
 
     return shifts;

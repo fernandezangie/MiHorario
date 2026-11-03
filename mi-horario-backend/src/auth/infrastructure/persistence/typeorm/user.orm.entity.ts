@@ -1,10 +1,5 @@
 import { Column, CreateDateColumn, Entity, PrimaryColumn } from 'typeorm';
 
-/**
- * Cuenta de acceso al sistema (tabla "users").
- * - Supervisor (ADMIN): se registra con la clave de registro del servidor.
- * - Colaborador (EMPLOYEE): se vincula a un empleado ya existente en la tabla "employees".
- */
 @Entity('users')
 export class UserOrmEntity {
   @PrimaryColumn('varchar')

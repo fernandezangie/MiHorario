@@ -3,8 +3,10 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { redisStore } from 'cache-manager-redis-yet';
 import * as net from 'net';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CacheService } from './cache.service';
-import { ParameterCatalogService } from './parameter.catalog.service'; // <-- Importado
+import { ParameterCatalogService } from './parameter.catalog.service';
 
 const cacheLogger = new Logger('CustomCacheModule');
 
@@ -38,8 +40,25 @@ function checkTcpPortReachable(
       useFactory: async (configService: ConfigService) => {
         const host = configService.get<string>('redis.host') || 'localhost';
         const port = configService.get<number>('redis.port') || 11729;
-        const useTls = configService.get<boolean>('redis.tls');
         const isRedisUp = await checkTcpPortReachable(host, port);
+
+        // Leer la contraseña desde el archivo en la carpeta secrets/redis_password.txt
+        let password = configService.get<string>('redis.password');
+        try {
+          // Asume que la carpeta 'secrets' está en la raíz del proyecto backend
+          const secretFilePath = path.resolve(
+            process.cwd(),
+            'secrets',
+            'redis_password.txt',
+          );
+          if (fs.existsSync(secretFilePath)) {
+            password = fs.readFileSync(secretFilePath, 'utf8').trim();
+          }
+        } catch (err) {
+          cacheLogger.warn(
+            'No se pudo leer el archivo secrets/redis_password.txt, usando fallback de configuración.',
+          );
+        }
 
         if (isRedisUp) {
           try {
@@ -47,10 +66,10 @@ function checkTcpPortReachable(
               socket: {
                 host,
                 port,
-                ...(useTls ? { tls: true, rejectUnauthorized: false } : {}),
+                tls: false, // Desactivado según tu configuración
               } as any,
-              username: configService.get<string>('redis.user'),
-              password: configService.get<string>('redis.password'),
+              username: configService.get<string>('redis.user') || 'default',
+              password: password,
             });
 
             return {
@@ -74,7 +93,7 @@ function checkTcpPortReachable(
       },
     }),
   ],
-  providers: [CacheService, ParameterCatalogService], // <-- Añadido a los providers
-  exports: [CacheService, ParameterCatalogService, CacheModule], // <-- Exportado para otros módulos
+  providers: [CacheService, ParameterCatalogService],
+  exports: [CacheService, ParameterCatalogService, CacheModule],
 })
 export class CustomCacheModule {}

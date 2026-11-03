@@ -7,9 +7,9 @@ export class EmployeeInMemoryRepository implements EmployeeRepositoryPort {
   async save(employee: EmployeeEntity): Promise<void> {
     const index = this.employees.findIndex((emp) => emp.getId() === employee.getId());
     if (index !== -1) {
-      this.employees[index] = employee; // Actualiza si ya existe (Upsert)
+      this.employees[index] = employee;
     } else {
-      this.employees.push(employee); // Inserta si es nuevo
+      this.employees.push(employee);
     }
   }
 
