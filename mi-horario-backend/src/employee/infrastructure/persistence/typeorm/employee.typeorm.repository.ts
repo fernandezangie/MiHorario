@@ -29,7 +29,7 @@ export class EmployeeTypeormRepository implements EmployeeRepositoryPort {
       new EmployeeCode(ormEntity.id),
       new EmployeeName(ormEntity.name),
       new EmployeeEmail(ormEntity.email),
-      EmployeeStatus.ACTIVE, // 👈 Se asigna por defecto ya que la tabla no guarda status
+      EmployeeStatus.ACTIVE,
     );
   }
 
@@ -40,7 +40,6 @@ export class EmployeeTypeormRepository implements EmployeeRepositoryPort {
     ormEntity.id = this.extractValue(emp.id);
     ormEntity.name = this.extractValue(emp.name);
     ormEntity.email = this.extractValue(emp.email);
-    // No se incluye ormEntity.status porque la base de datos no tiene esa columna
 
     await this.ormRepository.save(ormEntity);
   }

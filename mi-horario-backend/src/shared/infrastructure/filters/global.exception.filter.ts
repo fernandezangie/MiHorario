@@ -7,17 +7,15 @@ import {
   Logger,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
 
-/**
- * Building Block: Global Exception Filter & Data Masking (ADR-0005 / ADR-0006)
- * Estandariza todas las respuestas de error y oculta trazas internas de SQL/infraestructura
- * para cumplir con OWASP y Ley 1581 de 2012 (Habeas Data).
- */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost) {
+  constructor(private readonly messageCatalogService: MessageCatalogService) {}
+
+  async catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();
     const request = ctx.getRequest();
@@ -30,21 +28,35 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
+    // 1. Obtenemos por defecto el mensaje genérico desde Redis
     let message = 'Error interno procesando la solicitud en MiHorario.';
+    try {
+      const redisMessage = await this.messageCatalogService.getMessage(
+        'INTERNAL_SERVER_ERROR',
+        'es',
+      );
+      if (redisMessage) {
+        message = redisMessage;
+      }
+    } catch (err) {
+      this.logger.warn(
+        `No se pudo consultar el catálogo de Redis en el filtro global: ${err.message}`,
+      );
+    }
+
     if (exception instanceof HttpException) {
       const res: any = exception.getResponse();
-      message =
-        typeof res === 'string'
-          ? res
-          : Array.isArray(res?.message)
-          ? res.message.join(', ')
-          : res?.message || exception.message;
+      if (typeof res === 'string') {
+        message = res;
+      } else if (Array.isArray(res?.message)) {
+        message = res.message.join(', ');
+      } else if (res?.message) {
+        message = res.message;
+      }
     } else if (exception instanceof Error) {
-      // Se registra internamente el detalle técnico pero nunca se expone el stacktrace SQL al cliente
       this.logger.error(
         `[${traceId}] Unhandled Exception on ${request.method} ${request.url}: ${exception.message}`,
       );
-      message = exception.message || message;
     }
 
     response.setHeader('X-Request-Id', traceId);
@@ -58,4 +70,3 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     });
   }
 }
-

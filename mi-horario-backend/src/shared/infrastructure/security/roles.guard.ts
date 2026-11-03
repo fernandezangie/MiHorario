@@ -6,20 +6,20 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AppRole, ROLES_KEY } from './roles.decorator';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
 
-/**
- * RBAC Authorization Guard en Memoria (<1ms)
- * Verifica en memoria los claims `roles` del JWT sin consultar la base de datos.
- */
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) { }
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly messageCatalogService: MessageCatalogService,
+  ) { }
 
-  canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<AppRole[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const requiredRoles = this.reflector.getAllAndOverride<AppRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
@@ -39,9 +39,15 @@ export class RolesGuard implements CanActivate {
     );
 
     if (!user || !hasPermission) {
-      throw new ForbiddenException(
-        `Acceso denegado: Tu perfil (${userRoles.join(',') || 'ANÓNIMO'}) no tiene permisos para ejecutar esta operación.`,
+      const rolesString = userRoles.join(',') || 'ANÓNIMO';
+
+      const message = await this.messageCatalogService.getMessage(
+        'ROLE_ACCESS_DENIED',
+        'es',
+        { userRoles: rolesString },
       );
+
+      throw new ForbiddenException(message);
     }
 
     return true;

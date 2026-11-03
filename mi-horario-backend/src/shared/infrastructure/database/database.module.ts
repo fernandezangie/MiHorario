@@ -10,10 +10,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       username: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME || 'defaultdb',
-      synchronize: true, // Crea o actualiza las tablas automáticamente en desarrollo
+      synchronize: true,
       autoLoadEntities: true,
       ssl: {
-        rejectUnauthorized: false, // Necesario para conexiones seguras con CockroachDB Cloud
+        rejectUnauthorized: false,
       },
     }),
   ],

@@ -10,7 +10,6 @@ export class JobEntity extends Entity<string> {
     this.description = description;
   }
 
-  // Usamos 'this.id' que es provisto por la clase base Entity
   public getId(): string {
     return this.id;
   }

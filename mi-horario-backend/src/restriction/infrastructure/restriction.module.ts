@@ -13,7 +13,7 @@ import { FindRestrictionsByEmployeeUseCase } from '@restriction/application/usec
   providers: [
     CreateRestrictionUseCase,
     ListRestrictionsUseCase,
-    FindRestrictionsByEmployeeUseCase, // <-- ¡Registrado aquí!
+    FindRestrictionsByEmployeeUseCase,
     {
       provide: 'RestrictionRepositoryPort',
       useClass: RestrictionTypeormRepository,

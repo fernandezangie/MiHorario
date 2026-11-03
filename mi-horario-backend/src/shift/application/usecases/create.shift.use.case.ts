@@ -13,7 +13,6 @@ export class CreateShiftUseCase {
   ) {}
 
   async execute(dto: CreateShiftDto): Promise<void> {
-    // 1. Crear la entidad de turno con los 4 parámetros correctos
     const shift = new ShiftEntity(
       Date.now().toString(),
       dto.employeeId,
@@ -21,10 +20,7 @@ export class CreateShiftUseCase {
       new Date(dto.endTime),
     );
 
-    // 2. Guardar el turno en la base de datos
     await this.shiftRepository.save(shift);
-
-    // 3. Invalidar la caché
     await this.cacheService.del('shifts:all_active');
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, randomUUID } from 'crypto';
-
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // 👈 Importamos el catálogo
 
 export interface JwtPayload {
   iss?: string;
@@ -41,7 +41,10 @@ export interface GoogleOidcClaims {
 export class JwtTokenService {
   private readonly consumedRefreshJtis = new Set<string>();
 
-  constructor(private readonly configService: ConfigService) { }
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly messageCatalogService: MessageCatalogService, // 👈 Inyectamos el servicio de Redis
+  ) { }
 
   private getSecret(): string {
     return (
@@ -68,15 +71,13 @@ export class JwtTokenService {
   }
 
   private base64UrlDecode(input: string): string {
+    // 👈 Corregido el error tipográfico de sintaxis en el cálculo del padding
     const padLength = (4 - (input.length % 4)) % 4;
     const padded =
       input.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(padLength);
     return Buffer.from(padded, 'base64').toString('utf8');
   }
 
-  /**
-   * Firma el Access Token con vigencia corta de 15 minutos (900 segundos).
-   */
   sign(
     payload: Omit<JwtPayload, 'iat' | 'exp' | 'iss' | 'aud'>,
     expiresInSeconds = 900,
@@ -107,12 +108,11 @@ export class JwtTokenService {
     return `${signingInput}.${signature}`;
   }
 
-  /**
-   * Emite un Refresh Token de 7 días (604800 segundos)
-   * con un identificador único (jti) para controlar la Rotación de Refresh Tokens (RTR).
-   */
   signRefreshToken(
-    payload: Omit<JwtPayload, 'iat' | 'exp' | 'iss' | 'aud' | 'jti' | 'tokenUse'>,
+    payload: Omit<
+      JwtPayload,
+      'iat' | 'exp' | 'iss' | 'aud' | 'jti' | 'tokenUse'
+    >,
     expiresInSeconds = 604800,
   ): string {
     return this.sign(
@@ -125,28 +125,27 @@ export class JwtTokenService {
     );
   }
 
-  /**
-   * Paso 2 (ADR-0005 Línea 45): Rotación Obligatoria de Refresh Token (RTR).
-   * Invalida el Refresh Token anterior para que nunca pueda reutilizarse y emite
-   * un nuevo par (Access Token de 15 min + Nuevo Refresh Token de 7 días).
-   */
-  rotateRefreshToken(oldRefreshToken: string): {
+  async rotateRefreshToken(oldRefreshToken: string): Promise<{
     accessToken: string;
     refreshToken: string;
     payload: JwtPayload;
-  } {
+  }> {
     const decoded = this.verify(oldRefreshToken);
 
     if (decoded.tokenUse && decoded.tokenUse !== 'refresh') {
-      throw new UnauthorizedException(
-        'El token proporcionado no es un Refresh Token válido.',
+      const msg = await this.messageCatalogService.getMessage(
+        'JWT_REFRESH_INVALID',
+        'es',
       );
+      throw new UnauthorizedException(msg);
     }
 
     if (decoded.jti && this.consumedRefreshJtis.has(decoded.jti)) {
-      throw new UnauthorizedException(
-        'Alerta de seguridad (RTR - ADR-0005): Este Refresh Token ya fue utilizado o revocado.',
+      const msg = await this.messageCatalogService.getMessage(
+        'JWT_REFRESH_REVOKED',
+        'es',
       );
+      throw new UnauthorizedException(msg);
     }
 
     if (decoded.jti) {
@@ -182,18 +181,13 @@ export class JwtTokenService {
       if (decoded.jti) {
         this.consumedRefreshJtis.add(decoded.jti);
       }
-    } catch {
-      // Si ya expiró no requiere acción adicional
-    }
+    } catch { }
   }
 
-  /**
-   * Verifica la firma criptográfica y expiración en memoria (<1ms) sin consultar CockroachDB.
-   */
   verify(token: string): JwtPayload {
     const parts = token.split('.');
     if (parts.length !== 3) {
-      throw new UnauthorizedException('Formato de token JWT inválido.');
+      throw new UnauthorizedException('JWT_FORMAT_INVALID');
     }
 
     const [encodedHeader, encodedPayload, signature] = parts;
@@ -206,15 +200,15 @@ export class JwtTokenService {
       .replace(/\//g, '_');
 
     if (signature !== expectedSignature) {
-      throw new UnauthorizedException('Firma de token JWT no válida.');
+      throw new UnauthorizedException('JWT_SIGNATURE_INVALID');
     }
 
-    const payload: JwtPayload = JSON.parse(this.base64UrlDecode(encodedPayload));
+    const payload: JwtPayload = JSON.parse(
+      this.base64UrlDecode(encodedPayload),
+    );
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp && payload.exp < now) {
-      throw new UnauthorizedException(
-        'El token JWT ha expirado. Usa /auth/refresh o inicia sesión nuevamente.',
-      );
+      throw new UnauthorizedException('JWT_EXPIRED');
     }
 
     return payload;
@@ -223,18 +217,14 @@ export class JwtTokenService {
   verifyGoogleIdToken(idToken: string): GoogleOidcClaims {
     const parts = idToken.split('.');
     if (parts.length !== 3) {
-      throw new UnauthorizedException(
-        'El id_token de Google OpenID Connect no tiene un formato JWT válido.',
-      );
+      throw new UnauthorizedException('GOOGLE_OIDC_FORMAT_INVALID');
     }
 
     let claims: GoogleOidcClaims;
     try {
       claims = JSON.parse(this.base64UrlDecode(parts[1]));
     } catch {
-      throw new UnauthorizedException(
-        'No se pudo decodificar el payload del id_token de Google OIDC.',
-      );
+      throw new UnauthorizedException('GOOGLE_OIDC_DECODE_ERROR');
     }
 
     const validIssuers = ['https://accounts.google.com', 'accounts.google.com'];
@@ -253,9 +243,7 @@ export class JwtTokenService {
 
     const now = Math.floor(Date.now() / 1000);
     if (claims.exp && claims.exp < now) {
-      throw new UnauthorizedException(
-        'El id_token de Google OpenID Connect ha expirado.',
-      );
+      throw new UnauthorizedException('GOOGLE_OIDC_EXPIRED');
     }
 
     return claims;

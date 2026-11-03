@@ -12,27 +12,18 @@ import { LoginDto } from '../dtos/login.dto';
 import { RegisterDto } from '../dtos/register.dto';
 import { AuthService } from '../../application/auth.service';
 import { GoogleOidcLoginDto, RefreshTokenDto } from '../dtos/google-oidc.dto';
-import { JwtTokenService } from '@shared/infrastructure/security/jwt-token.service';
+import { JwtTokenService } from '@shared/infrastructure/security/jwt.token.service';
 import { Public } from '@shared/infrastructure/security/roles.decorator';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
 
-/**
- * Building Block: Identity Provider - OpenID Connect (Google Cloud) + OAuth2 + JWT
- * Implementa Paso 1 y Paso 2 de ADR-0005:
- * - Paso 1: Access Token de 15 min (900s) con sub, email, roles, employeeId, areaId.
- * - Paso 2: Refresh Token de 7 días (604800s) en cookie HttpOnly, Secure, SameSite=Strict
- *   con Rotación Obligatoria de Tokens (Refresh Token Rotation - RTR) en POST /auth/refresh.
- */
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly jwtTokenService: JwtTokenService,
     private readonly authService: AuthService,
+    private readonly messageCatalogService: MessageCatalogService,
   ) {}
 
-  /**
-   * Configura la cookie sellada HttpOnly + Secure + SameSite=Strict exigida por ADR-0005 Línea 45
-   * para proteger el Refresh Token frente a ataques XSS y CSRF.
-   */
   private attachSecureRefreshCookie(res: any, refreshToken: string): void {
     const cookieValue = [
       `mihorario_refresh_token=${refreshToken}`,
@@ -40,7 +31,7 @@ export class AuthController {
       'Secure',
       'SameSite=Strict',
       'Path=/auth',
-      'Max-Age=604800', // 7 días en segundos (ADR-0005 Línea 45)
+      'Max-Age=604800',
     ].join('; ');
     res.setHeader('Set-Cookie', cookieValue);
   }
@@ -86,17 +77,16 @@ export class AuthController {
 
   @Public()
   @Post('oidc/google')
-  loginWithGoogleOidc(
+  async loginWithGoogleOidc(
     @Body() body: GoogleOidcLoginDto,
     @Res({ passthrough: true }) res: any,
   ) {
-    // SEGURIDAD: verifyGoogleIdToken solo decodifica el token, NO comprueba la firma
-    // de Google, así que cualquiera podría fabricar uno. Se mantiene apagado hasta
-    // verificar la firma (p. ej. con google-auth-library) y exigir usuario registrado.
     if (process.env.ENABLE_GOOGLE_LOGIN !== 'true') {
-      throw new ForbiddenException(
-        'El inicio de sesión con Google está deshabilitado.',
+      const msg = await this.messageCatalogService.getMessage(
+        'GOOGLE_LOGIN_DISABLED',
+        'es',
       );
+      throw new ForbiddenException(msg);
     }
     const googleClaims = this.jwtTokenService.verifyGoogleIdToken(body.idToken);
     const targetRole = body.role === 'EMPLOYEE' ? 'EMPLOYEE' : 'ADMIN';
@@ -130,9 +120,7 @@ export class AuthController {
             authProvider: 'GOOGLE_OIDC' as const,
           };
 
-    // Paso 1: Access Token de 15 minutos (900s)
     const accessToken = this.jwtTokenService.sign(userProfile, 900);
-    // Paso 2: Refresh Token de 7 días (604800s) en cookie HttpOnly + Secure + SameSite=Strict
     const refreshToken = this.jwtTokenService.signRefreshToken(
       userProfile,
       604800,
@@ -167,15 +155,16 @@ export class AuthController {
     };
   }
 
-  /**
-   * Registro de cuentas nuevas (Supervisor o Colaborador).
-   */
   @Public()
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     const user = await this.authService.register(dto);
+    const successMsg = await this.messageCatalogService.getMessage(
+      'REGISTER_SUCCESS',
+      'es',
+    );
     return {
-      message: 'Registro exitoso. Ya puedes iniciar sesión.',
+      message: successMsg,
       user: {
         id: user.id,
         email: user.email,
@@ -185,10 +174,6 @@ export class AuthController {
     };
   }
 
-  /**
-   * Login contra la base de datos: solo entra quien esté registrado y escriba
-   * su contraseña correcta. El perfil (ADMIN/EMPLOYEE) lo define la base, no el cliente.
-   */
   @Public()
   @Post('login')
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: any) {
@@ -198,9 +183,7 @@ export class AuthController {
     );
     const userProfile = this.authService.buildSessionProfile(user);
 
-    // Paso 1: Access Token de 15 minutos (900s)
     const accessToken = this.jwtTokenService.sign(userProfile, 900);
-    // Paso 2: Refresh Token de 7 días (604800s) en cookie HttpOnly + Secure + SameSite=Strict
     const refreshToken = this.jwtTokenService.signRefreshToken(
       userProfile,
       604800,
@@ -235,14 +218,9 @@ export class AuthController {
     };
   }
 
-  /**
-   * Paso 2 de ADR-0005 (Línea 45): Renovación y Rotación de Refresh Token (RTR).
-   * Lee el Refresh Token de la cookie HttpOnly (o del body en pruebas), invalida el
-   * token anterior para que nunca pueda reutilizarse y emite un nuevo par de tokens.
-   */
   @Public()
   @Post('refresh')
-  refreshSession(
+  async refreshSession(
     @Req() req: any,
     @Body() body: RefreshTokenDto,
     @Res({ passthrough: true }) res: any,
@@ -251,17 +229,25 @@ export class AuthController {
       this.extractRefreshTokenFromCookie(req) || body?.refreshToken;
 
     if (!incomingToken) {
-      throw new UnauthorizedException(
-        'No se encontró cookie HttpOnly mihorario_refresh_token para renovar la sesión.',
+      const errorMsg = await this.messageCatalogService.getMessage(
+        'REFRESH_TOKEN_NOT_FOUND',
+        'es',
       );
+      throw new UnauthorizedException(errorMsg);
     }
 
-    const rotated = this.jwtTokenService.rotateRefreshToken(incomingToken);
+    // 👈 AQUÍ ESTABA EL ERROR: Agregamos await porque rotateRefreshToken ahora es async
+    const rotated =
+      await this.jwtTokenService.rotateRefreshToken(incomingToken);
     this.attachSecureRefreshCookie(res, rotated.refreshToken);
 
+    const refreshMsg = await this.messageCatalogService.getMessage(
+      'SESSION_REFRESHED',
+      'es',
+    );
+
     return {
-      message:
-        'Sesión renovada mediante Refresh Token Rotation (RTR - ADR-0005)',
+      message: refreshMsg,
       accessToken: rotated.accessToken,
       tokenType: 'Bearer',
       expiresIn: 900,
@@ -270,12 +256,9 @@ export class AuthController {
     };
   }
 
-  /**
-   * Cierre de sesión seguro: revoca el Refresh Token activo y limpia la cookie HttpOnly.
-   */
   @Public()
   @Post('logout')
-  logout(
+  async logout(
     @Req() req: any,
     @Body() body: RefreshTokenDto,
     @Res({ passthrough: true }) res: any,
@@ -289,8 +272,12 @@ export class AuthController {
       'Set-Cookie',
       'mihorario_refresh_token=; HttpOnly; Secure; SameSite=Strict; Path=/auth; Max-Age=0',
     );
+    const logoutMsg = await this.messageCatalogService.getMessage(
+      'LOGOUT_SUCCESS',
+      'es',
+    );
     return {
-      message: 'Sesión cerrada y Refresh Token revocado correctamente.',
+      message: logoutMsg,
     };
   }
 

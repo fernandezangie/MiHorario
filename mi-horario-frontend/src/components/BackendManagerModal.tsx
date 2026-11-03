@@ -8,7 +8,7 @@ interface BackendManagerModalProps {
   initialTab: ManagerTab;
   onClose: () => void;
   onEmployeeCreated: (emp: { code: string; name: string; email: string; role: string; department: string }) => void;
-  onShiftCreated: (shift: { employeeId: string; day: number; startTime: string; endTime: string; location: string }) => void;
+  onShiftCreated: (shift: { employeeId: string; day: number; startTime: string; endTime: string; location: string; jobId?: string }) => void;
   employees: Employee[];
   backendOnline: boolean;
 }
@@ -26,10 +26,60 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   const [statusMsg, setStatusMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Estados para las zonas dinámicas desde la BD
+  const [zonesList, setZonesList] = useState<string[]>([
+    'Zona Transporte',
+    'Casa De Convenciones',
+    'Zona norte',
+    'Espacios de Educación',
+    'Administración',
+    'Zona 2',
+    'Zona Húmeda',
+    'Tutucán',
+  ]);
+
+  // Estados para los trabajos (jobs) dinámicos desde la BD
+  const [jobsList, setJobsList] = useState<Array<{ id: string; title: string }>>([]);
+
   useEffect(() => {
     setTab(initialTab);
     setStatusMsg(null);
-  }, [initialTab, isOpen]);
+
+    // Cargar catálogos reales del backend al abrir el modal si está online
+    const fetchCatalogsFromDb = async () => {
+      if (backendOnline) {
+        try {
+          if (typeof api.getZones === 'function') {
+            const data = await api.getZones();
+            if (Array.isArray(data) && data.length > 0) {
+              const formattedZones = data.map((z: any) => (typeof z === 'object' ? z.name : z));
+              setZonesList(formattedZones);
+              if (formattedZones.length > 0) {
+                setShiftZone(formattedZones[0]);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('No se pudieron cargar las zonas de la BD, usando respaldo:', err);
+        }
+
+        try {
+          if (typeof api.getJobs === 'function') {
+            const jobsData = await api.getJobs();
+            if (Array.isArray(jobsData)) {
+              setJobsList(jobsData);
+            }
+          }
+        } catch (err) {
+          console.error('No se pudieron cargar los trabajos de la BD:', err);
+        }
+      }
+    };
+
+    if (isOpen) {
+      fetchCatalogsFromDb();
+    }
+  }, [initialTab, isOpen, backendOnline]);
 
   // Employee Form
   const [empCode, setEmpCode] = useState('COM-2055');
@@ -43,7 +93,8 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   const [shiftDay, setShiftDay] = useState(new Date().getDate());
   const [shiftStart, setShiftStart] = useState('08:00');
   const [shiftEnd, setShiftEnd] = useState('16:00');
-  const [shiftZone, setShiftZone] = useState('Sede Parque Rionegro');
+  const [shiftZone, setShiftZone] = useState('Zona Transporte');
+  const [shiftJobId, setShiftJobId] = useState('');
 
   // Zone Form
   const [zoneName, setZoneName] = useState('');
@@ -96,19 +147,21 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     setStatusMsg(null);
     try {
       if (backendOnline) {
-        // Generar fecha usando el año y mes actual del sistema (Noviembre 2026)
         const now = new Date();
         const currentYear = now.getFullYear();
         const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
         const dayStr = String(shiftDay).padStart(2, '0');
 
-        const startTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftStart}:00.000Z`;
-        const endTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftEnd}:00.000Z`;
+        // Formato con offset local de Colombia (-05:00) en lugar de UTC (Z)
+        const startTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftStart}:00-05:00`;
+        const endTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftEnd}:00-05:00`;
 
         await api.createShift({
           employeeId: shiftEmpId,
           startTime,
           endTime,
+          zone: shiftZone,
+          jobId: shiftJobId || undefined,
         });
       }
       onShiftCreated({
@@ -117,15 +170,16 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
         startTime: shiftStart,
         endTime: shiftEnd,
         location: shiftZone,
+        jobId: shiftJobId || undefined,
       });
 
-      // Obtener el nombre del mes actual en español ("noviembre")
       const nombreMes = new Date().toLocaleDateString('es-ES', { month: 'long' });
       const empObj = employees.find((item) => item.id === shiftEmpId);
+      const jobObj = jobsList.find((item) => item.id === shiftJobId);
 
       setStatusMsg({
         type: 'ok',
-        text: `Turno asignado a ${empObj?.name || shiftEmpId} para el ${shiftDay} de ${nombreMes} (${shiftStart} - ${shiftEnd}).`,
+        text: `Turno asignado a ${empObj?.name || shiftEmpId} para el ${shiftDay} de ${nombreMes} (${shiftStart} a ${shiftEnd}) en ${shiftZone}${jobObj ? ` [Trabajo: ${jobObj.title}]` : ''}.`,
       });
     } catch (err: any) {
       setStatusMsg({ type: 'err', text: err.message || 'Error al asignar turno' });
@@ -266,32 +320,64 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
                   />
                 </div>
                 <div className="form-group">
-                  <label className="detail-label">Hora de Entrada</label>
+                  <label className="detail-label">Hora de Entrada (06:00 - 21:00)</label>
                   <input
                     type="time"
+                    min="06:00"
+                    max="21:00"
                     className="form-control"
                     value={shiftStart}
                     onChange={(e) => setShiftStart(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="form-group">
-                  <label className="detail-label">Hora de Salida</label>
+                  <label className="detail-label">Hora de Salida (06:00 - 21:00)</label>
                   <input
                     type="time"
+                    min="06:00"
+                    max="21:00"
                     className="form-control"
                     value={shiftEnd}
                     onChange={(e) => setShiftEnd(e.target.value)}
+                    required
                   />
                 </div>
               </div>
-              <div className="form-group">
-                <label className="detail-label">Sede o Zona Asignada</label>
-                <input
-                  className="form-control"
-                  value={shiftZone}
-                  onChange={(e) => setShiftZone(e.target.value)}
-                />
+
+              <div className="form-row-2">
+                <div className="form-group">
+                  <label className="detail-label">Zona Asignada</label>
+                  <select
+                    className="form-control"
+                    value={shiftZone}
+                    onChange={(e) => setShiftZone(e.target.value)}
+                  >
+                    {zonesList.map((zone, idx) => (
+                      <option key={idx} value={zone}>
+                        {zone}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="detail-label">Trabajo Asignado</label>
+                  <select
+                    className="form-control"
+                    value={shiftJobId}
+                    onChange={(e) => setShiftJobId(e.target.value)}
+                  >
+                    <option value="">Selecciona un trabajo...</option>
+                    {jobsList.map((job) => (
+                      <option key={job.id} value={job.id}>
+                        {job.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
               <button type="submit" className="modal-btn-primary" disabled={loading}>
                 {loading ? 'Guardando turno...' : 'Guardar y Publicar Turno'}
               </button>

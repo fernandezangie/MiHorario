@@ -6,31 +6,25 @@ import {
   Matches,
 } from 'class-validator';
 
-/**
- * Paso 3 de ADR-0005 (Línea 51): Validación exhaustiva de esquema con class-validator
- * para neutralizar vectores de SQL Injection (OWASP A03) y Mass Assignment en la entrada.
- */
 export class CreateEmployeeDto {
   @IsNotEmpty({ message: 'EMPLOYEE_CODE_REQUIRED' })
   @IsString()
-  @MaxLength(25, { message: 'El código no puede exceder 25 caracteres.' })
+  @MaxLength(25, { message: 'EMPLOYEE_CODE_MAX_LENGTH' })
   @Matches(/^[A-Za-z0-9\-_]+$/, {
-    message:
-      'El código solo permite caracteres alfanuméricos y guiones (prevención de inyección OWASP A03).',
+    message: 'EMPLOYEE_CODE_INVALID_FORMAT',
   })
   code: string;
 
   @IsNotEmpty({ message: 'EMPLOYEE_NAME_REQUIRED' })
   @IsString()
-  @MaxLength(100, { message: 'El nombre no puede exceder 100 caracteres.' })
+  @MaxLength(100, { message: 'EMPLOYEE_NAME_MAX_LENGTH' })
   @Matches(/^[^;'"\\<>]+$/, {
-    message:
-      'El nombre contiene caracteres no permitidos por la política anti-inyección (ADR-0005).',
+    message: 'EMPLOYEE_NAME_INVALID_CHARS',
   })
   name: string;
 
   @IsNotEmpty({ message: 'EMPLOYEE_EMAIL_REQUIRED' })
   @IsEmail({}, { message: 'EMPLOYEE_EMAIL_INVALID' })
-  @MaxLength(120, { message: 'El correo no puede exceder 120 caracteres.' })
+  @MaxLength(120, { message: 'EMPLOYEE_EMAIL_MAX_LENGTH' })
   email: string;
 }

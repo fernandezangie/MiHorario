@@ -16,7 +16,6 @@ export class RestrictionController {
   async create(@Body() dto: CreateRestrictionDto) {
     await this.createRestrictionUseCase.execute(dto);
 
-    // Obtenemos el mensaje de éxito dinámicamente desde Redis
     const successMessage = await this.messageCatalogService.getMessage(
       'RESTRICTION_CREATED_SUCCESS',
       'es',

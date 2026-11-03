@@ -5,16 +5,13 @@ import {
   HttpStatus,
   Injectable,
 } from '@nestjs/common';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
 
 interface RateRecord {
   count: number;
   resetAt: number;
 }
 
-/**
- * API Gateway Rate Limiter / Throttler
- * Protege los endpoints frente a ataques de fuerza bruta y picos de tráfico por IP.
- */
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly buckets = new Map<string, RateRecord>();
@@ -23,7 +20,10 @@ export class RateLimitGuard implements CanActivate {
   private readonly maxRequests =
     parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '120', 10) || 120;
 
-  canActivate(context: ExecutionContext): boolean {
+  constructor(private readonly messageCatalogService: MessageCatalogService) { }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    // 👈 Ahora es async por el await de Redis
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
     const ip =
@@ -50,18 +50,20 @@ export class RateLimitGuard implements CanActivate {
     response.setHeader('X-RateLimit-Remaining', remaining.toString());
 
     if (existing.count > this.maxRequests) {
+      const message = await this.messageCatalogService.getMessage(
+        'RATE_LIMIT_EXCEEDED',
+        'es',
+      );
+
       throw new HttpException(
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
           error: 'Too Many Requests',
-          message:
-            'Has superado el límite de peticiones permitidas por minuto.',
+          message,
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-
     return true;
   }
 }
-

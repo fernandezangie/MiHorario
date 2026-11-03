@@ -1,10 +1,6 @@
 import { Controller, Get, Header } from '@nestjs/common';
 import { Public } from '@shared/infrastructure/security/roles.decorator';
 
-/**
- * Building Block: HealthCheck, Readiness Probes & OpenAPI Gateway Contract
- * (ADR-0001 / ADR-0005 / ADR-0009 / ADR-0011)
- */
 @Controller()
 export class HealthController {
   @Public()
@@ -35,7 +31,7 @@ export class HealthController {
         title: 'MiHorario Comfama - API Gateway & Backend Contract',
         version: '1.0.0',
         description:
-          'Contrato OpenAPI 3.0 alineado con ADR-0001 a ADR-0013 (Seguridad JWT/RBAC, Auditoría Ley 1581, Salud y Gestión de Horarios).',
+          'Contrato OpenAPI 3.0 (Seguridad JWT/RBAC, Auditoría Ley 1581, Salud y Gestión de Horarios).',
       },
       servers: [{ url: 'http://localhost:3000', description: 'Servidor Local' }],
       components: {

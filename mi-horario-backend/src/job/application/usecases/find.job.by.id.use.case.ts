@@ -14,7 +14,6 @@ export class FindJobByIdUseCase {
   async execute(id: string): Promise<JobEntity> {
     const job = await this.jobRepository.findById(id);
     if (!job) {
-      // Obtenemos el mensaje dinámico desde Redis inyectando el parámetro {id}
       const errorMessage = await this.messageCatalogService.getMessage(
         'JOB_NOT_FOUND',
         'es',

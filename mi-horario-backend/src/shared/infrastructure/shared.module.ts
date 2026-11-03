@@ -12,12 +12,6 @@ import { NotificationService } from './messaging/notification.service';
     MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        // --- DIAGNÓSTICO TEMPORAL (borrar después) ---
-        console.log('MAIL_HOST:', config.get('MAIL_HOST'));
-        console.log('MAIL_PORT:', config.get('MAIL_PORT'));
-        console.log('MAIL_USER:', config.get('MAIL_USER'));
-        console.log('MAIL_PASS definida:', !!config.get('MAIL_PASS'));
-        // ---------------------------------------------
 
         return {
           transport: {
@@ -40,4 +34,4 @@ import { NotificationService } from './messaging/notification.service';
   controllers: [MessageTestController],
   exports: [MessageCatalogService, CacheService, NotificationService],
 })
-export class SharedModule {}
+export class SharedModule { }

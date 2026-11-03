@@ -4,12 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as net from 'net';
 import * as fs from 'fs';
-
-// Importación de controladores y servicios raíz
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-
-// Importación de los módulos del MVP de MiHorario usando alias con '@'
 import { EmployeeModule } from '@employee/infrastructure/employee.module';
 import { JobModule } from '@job/infrastructure/job.module';
 import { ShiftModule } from '@shift/infrastructure/shift.module';
@@ -18,17 +14,15 @@ import { ZoneModule } from '@zone/infrastructure/zone.module';
 import { SharedModule } from '@shared/infrastructure/shared.module';
 import configuration from './shared/infrastructure/config/configuration';
 import { validationSchema } from '@shared/infrastructure/config/environment.validation';
-
-// Módulo de caché con Redis (único punto de configuración de Redis)
 import { CustomCacheModule } from '@shared/infrastructure/cache/cache.module';
-// Building Blocks Fundamentales: Seguridad JWT/RBAC, Auditoría Habeas Data, Salud y Trazabilidad
 import { AuthModule } from './auth/infrastructure/auth.module';
 import { AuditModule } from './audit/infrastructure/audit.module';
 import { HealthModule } from './health/infrastructure/health.module';
-import { RateLimitGuard } from '@shared/infrastructure/security/rate-limit.guard';
-import { JwtAuthGuard } from '@shared/infrastructure/security/jwt-auth.guard';
+import { RateLimitGuard } from '@shared/infrastructure/security/rate.limit.guard';
+import { JwtAuthGuard } from '@shared/infrastructure/security/jwt.auth.guard';
 import { RolesGuard } from '@shared/infrastructure/security/roles.guard';
-import { GlobalExceptionFilter } from '@shared/infrastructure/filters/global-exception.filter';
+import { GlobalExceptionFilter } from '@shared/infrastructure/filters/global.exception.filter';
+import { ValidationExceptionFilter } from '@shared/infrastructure/filters/validation.exception.filter'; // 👈 Importamos tu nuevo filtro de validaciones
 import { LoggingInterceptor } from '@shared/infrastructure/interceptors/logging.interceptor';
 
 const bootLogger = new Logger('AppModule-Bootstrap');
@@ -54,12 +48,6 @@ function checkTcpPortReachable(
   });
 }
 
-/**
- * Obtiene la contraseña de la base de datos.
- * 1) Si DB_PASSWORD_FILE apunta a un archivo/directorio real (Docker Secret), lo lee.
- * 2) Si no, usa SOLO process.env.DB_PASSWORD.
- * Siempre retorna un string.
- */
 function getDatabasePassword(): string {
   try {
     const passwordPath = process.env.DB_PASSWORD_FILE;
@@ -109,12 +97,6 @@ function getDatabasePassword(): string {
   }
 }
 
-/**
- * Determina si se debe usar SSL en la conexión a la base de datos.
- * - DB_SSL=false  -> sin SSL (Postgres local en Docker).
- * - DB_SSL=true   -> con SSL (CockroachDB Cloud u otro remoto).
- * - Sin definir   -> SSL solo si el host no es local.
- */
 function resolveDbSsl(dbHost: string): false | { rejectUnauthorized: boolean } {
   const flag = (process.env.DB_SSL || '').toLowerCase();
 
@@ -127,17 +109,13 @@ function resolveDbSsl(dbHost: string): false | { rejectUnauthorized: boolean } {
 
 @Module({
   imports: [
-    // 1. Configuración global de variables de entorno y validación (Building Block Secret Manager ADR-0001)
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
       validationSchema,
     }),
 
-    // 2. Caché con Redis y Fallback en Memoria Resiliente (TLS configurable por REDIS_TLS)
     CustomCacheModule,
-
-    // 3. Conexión global a PostgreSQL / CockroachDB mediante TypeORM con detección preventiva
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -179,7 +157,6 @@ function resolveDbSsl(dbHost: string): false | { rejectUnauthorized: boolean } {
       },
     }),
 
-    // 4. Registro de todos los módulos del MVP y Building Blocks Arquitectónicos
     AuthModule,
     AuditModule,
     HealthModule,
@@ -193,27 +170,26 @@ function resolveDbSsl(dbHost: string): false | { rejectUnauthorized: boolean } {
   controllers: [AppController],
   providers: [
     AppService,
-    // API Gateway Rate Limiter (ADR-0001 / ADR-0009)
     {
       provide: APP_GUARD,
       useClass: RateLimitGuard,
     },
-    // Identity Provider JWT Validation Guard (ADR-0001 / ADR-0006)
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
-    // RBAC Authorization Guard (ADR-0006 - ADMIN vs EMPLOYEE)
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
-    // Global Exception Filter & Data Masking (ADR-0005 / OWASP)
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
     },
-    // Traceability & Audit Trail Interceptor (ADR-0005 / ADR-0006 / ADR-0011)
+    {
+      provide: APP_FILTER,
+      useClass: ValidationExceptionFilter,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,

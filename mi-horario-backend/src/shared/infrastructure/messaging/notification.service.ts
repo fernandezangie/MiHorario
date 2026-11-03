@@ -11,9 +11,6 @@ export class NotificationService {
     private readonly mailerService: MailerService,
   ) {}
 
-  /**
-   * Envía una notificación por correo electrónico resolviendo la plantilla dinámica desde el caché.
-   */
   async sendEmailNotification(
     templateCode: string,
     recipientEmail: string,
@@ -25,15 +22,12 @@ export class NotificationService {
       let templateContent =
         await this.messageCatalogService.getMessageTemplate(templateCode);
 
-      // 2. Reemplazar variables dinámicas ({startTime}, {endTime}, etc.)
-      //    split/join evita problemas con caracteres especiales de RegExp
       for (const [key, value] of Object.entries(variables)) {
         templateContent = templateContent
           .split(`{${key}}`)
           .join(String(value ?? ''));
       }
 
-      // 3. Enviar el correo electrónico a través de Nodemailer
       const info = await this.mailerService.sendMail({
         to: recipientEmail,
         subject,
@@ -51,17 +45,13 @@ export class NotificationService {
         `[EMAIL PASARELA] Correo enviado exitosamente a: ${recipientEmail}`,
       );
 
-      // Ethereal: enlace para ver el correo sin iniciar sesión
-      // (solo funciona si el transporter es smtp.ethereal.email)
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const nodemailer = require('nodemailer');
         const previewUrl = nodemailer.getTestMessageUrl(info);
         if (previewUrl) {
           this.logger.log(`[EMAIL PASARELA] Vista previa: ${previewUrl}`);
         }
       } catch {
-        // Si nodemailer no está accesible, simplemente no se muestra la vista previa
       }
 
       return true;

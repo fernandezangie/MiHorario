@@ -10,7 +10,6 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token de autorización no provisto');
     }
 
-    // Aquí se realiza la validación del Token JWT en producción
     return true;
   }
 }

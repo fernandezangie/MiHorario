@@ -12,9 +12,10 @@ import { AssignShiftToEmployeeUseCase } from '@shift/application/usecases/assign
 import { FindShiftByIdUseCase } from '@shift/application/usecases/find.shift.by.id.use.case';
 import { ListShiftsUseCase } from '@shift/application/usecases/list.shifts.use.case';
 import { AcknowledgeShiftUseCase } from '@shift/application/usecases/acknowledge.shift.use.case';
-import { UpdateShiftUseCase } from '@shift/application/usecases/update.shift.use.case'; // Importa tu caso de uso de actualización
+import { UpdateShiftUseCase } from '@shift/application/usecases/update.shift.use.case';
 import { AssignShiftDto } from '@shift/application/dtos/assign.shift.dto';
-import { UpdateShiftDto } from '@shift/application/dtos/update.shift.dto'; // Importa el DTO para actualización
+import { UpdateShiftDto } from '@shift/application/dtos/update.shift.dto';
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
 
 @Controller('shift')
 export class ShiftController {
@@ -23,16 +24,21 @@ export class ShiftController {
     private readonly findShiftByIdUseCase: FindShiftByIdUseCase,
     private readonly listShiftsUseCase: ListShiftsUseCase,
     private readonly acknowledgeShiftUseCase: AcknowledgeShiftUseCase,
-    private readonly updateShiftUseCase: UpdateShiftUseCase, // Inyectado para persistir los cambios del supervisor
+    private readonly updateShiftUseCase: UpdateShiftUseCase,
+    private readonly messageCatalogService: MessageCatalogService,
   ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: AssignShiftDto) {
     await this.assignShiftUseCase.execute(dto);
+    const message = await this.messageCatalogService.getMessage(
+      'SHIFT_ASSIGN_SUCCESS',
+      'es',
+    );
     return {
       statusCode: HttpStatus.CREATED,
-      message: 'Turno asignado y notificación enviada con éxito.',
+      message,
     };
   }
 
@@ -50,9 +56,13 @@ export class ShiftController {
   @HttpCode(HttpStatus.OK)
   async acknowledge(@Param('id') id: string) {
     await this.acknowledgeShiftUseCase.execute(id);
+    const message = await this.messageCatalogService.getMessage(
+      'SHIFT_ACKNOWLEDGE_SUCCESS',
+      'es',
+    );
     return {
       statusCode: HttpStatus.OK,
-      message: 'Turno confirmado exitosamente por el colaborador.',
+      message,
     };
   }
 
@@ -60,9 +70,13 @@ export class ShiftController {
   @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() dto: UpdateShiftDto) {
     await this.updateShiftUseCase.execute(id, dto);
+    const message = await this.messageCatalogService.getMessage(
+      'SHIFT_UPDATE_SUCCESS',
+      'es',
+    );
     return {
       statusCode: HttpStatus.OK,
-      message: 'Turno actualizado y sincronizado con éxito.',
+      message,
     };
   }
 }

@@ -1,22 +1,31 @@
-import {
-  IsDateString,
-  IsNotEmpty,
-  IsString,
-  IsOptional,
-} from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsNotEmpty } from 'class-validator';
 
 export class AssignShiftDto {
-  @IsString()
-  @IsOptional() // O IsNotEmpty() si la interfaz del supervisor siempre envía el ID del turno
-  id?: string;
-
-  @IsString()
   @IsNotEmpty()
+  @IsString()
   employeeId: string;
 
-  @IsDateString()
-  startTime: string;
+  @IsOptional()
+  @IsString()
+  startTime?: string;
 
-  @IsDateString()
-  endTime: string;
+  @IsOptional()
+  @IsString()
+  endTime?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isRest?: boolean;
+
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  @IsOptional()
+  @IsString()
+  zone?: string;
+
+  @IsOptional()
+  @IsString()
+  jobId?: string; //
 }

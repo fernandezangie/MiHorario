@@ -5,7 +5,9 @@ export class ShiftEntity extends Entity<string> {
   private startTime: Date | null;
   private endTime: Date | null;
   private acknowledged: boolean;
-  private isRest: boolean; // 👈 Propiedad para días libres
+  private isRest: boolean;
+  private zone: string | null;
+  private job: string | null;
 
   constructor(
     id: string,
@@ -13,12 +15,13 @@ export class ShiftEntity extends Entity<string> {
     startTime: Date | null,
     endTime: Date | null,
     acknowledged: boolean = false,
-    isRest: boolean = false, // 👈 Por defecto en false
+    isRest: boolean = false,
+    zone: string | null = null,
+    job: string | null = null,
   ) {
     super(id);
     this.employeeId = employeeId;
 
-    // Solo validamos fechas si no es un día libre y existen ambos valores
     if (!isRest && startTime && endTime) {
       this.validateDates(startTime, endTime);
     }
@@ -27,6 +30,8 @@ export class ShiftEntity extends Entity<string> {
     this.endTime = endTime;
     this.acknowledged = acknowledged;
     this.isRest = isRest;
+    this.zone = zone;
+    this.job = job;
   }
 
   private validateDates(start: Date, end: Date): void {
@@ -59,7 +64,14 @@ export class ShiftEntity extends Entity<string> {
     return this.isRest;
   }
 
-  // Métodos de dominio para modificar el estado de forma segura
+  public getZone(): string | null {
+    return this.zone;
+  }
+
+  public getJob(): string | null {
+    return this.job;
+  }
+
   public acknowledge(): void {
     this.acknowledged = true;
   }
@@ -68,6 +80,8 @@ export class ShiftEntity extends Entity<string> {
     startTime: Date | null,
     endTime: Date | null,
     isRest: boolean,
+    zone?: string | null,
+    job?: string | null,
   ): void {
     if (!isRest && startTime && endTime) {
       this.validateDates(startTime, endTime);
@@ -75,5 +89,12 @@ export class ShiftEntity extends Entity<string> {
     this.startTime = startTime;
     this.endTime = endTime;
     this.isRest = isRest;
+
+    if (zone !== undefined) {
+      this.zone = zone;
+    }
+    if (job !== undefined) {
+      this.job = job;
+    }
   }
 }

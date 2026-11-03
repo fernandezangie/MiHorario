@@ -17,11 +17,6 @@ export interface AuditLogEntry {
   summary: string;
 }
 
-/**
- * Building Block: Immutable Audit Trail Service (ADR-0006 - Habeas Data / Ley 1581)
- * Registra de forma inmutable todas las operaciones de creación/modificación de turnos,
- * empleados y sedes realizadas en la plataforma.
- */
 @Injectable()
 export class AuditService {
   private readonly logs: AuditLogEntry[] = [

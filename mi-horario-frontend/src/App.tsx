@@ -211,12 +211,13 @@ export default function App() {
     setCurrentUser(PROFILES[newRole]);
   };
 
-  const handleSupervisorUpdateShift = (updated: {
+  const handleSupervisorUpdateShift = async (updated: {
     employeeId: string;
     day: number;
     startTime: string;
     endTime: string;
     location: string;
+    jobId: string;
     isRest: boolean;
   }) => {
     const startH = parseInt(updated.startTime.split(':')[0], 10) || 6;
@@ -225,14 +226,15 @@ export default function App() {
     const hours = updated.isRest
       ? 0
       : endH >= startH
-        ? endH - startH
-        : 24 - startH + endH;
+      ? endH - startH
+      : 24 - startH + endH;
 
     let type: ShiftType = 'ORDINARY';
     if (updated.isRest) type = 'REST';
     else if (hours > 10) type = 'OVERTIME';
     else if (startH >= 18 || endH <= 6) type = 'SURCHARGE';
 
+    // 1. Actualizamos el estado visual local de inmediato
     setEmployees((prev) =>
       prev.map((emp) => {
         if (emp.id !== updated.employeeId) return emp;
@@ -246,6 +248,7 @@ export default function App() {
             ? 'Día Libre / Descanso'
             : `Turno Modificado (${hours}h)`,
           location: updated.isRest ? 'No aplica' : updated.location,
+          jobId: updated.jobId,
         };
         setSelectedShift(newShiftObj);
         return {
@@ -257,6 +260,42 @@ export default function App() {
         };
       })
     );
+
+    // 2. Sincronizamos la actualización, la zona y el trabajo con el backend
+    try {
+      if (backendOnline) {
+        const targetEmp = employees.find((e) => e.id === updated.employeeId);
+        const targetShift = targetEmp?.shifts[updated.day];
+
+        if (targetShift?.id) {
+          const tokenData = localStorage.getItem('token') || localStorage.getItem('access_token');
+          const cleanToken = tokenData?.startsWith('"') ? JSON.parse(tokenData) : tokenData;
+
+          const response = await fetch(`http://localhost:3000/shift/${targetShift.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${cleanToken}`,
+            },
+            body: JSON.stringify({
+              startTime: updated.isRest ? null : updated.startTime,
+              endTime: updated.isRest ? null : updated.endTime,
+              isRest: updated.isRest,
+              zone: updated.location,
+              location: updated.location,
+              jobId: updated.jobId,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Fallo al actualizar el turno en el backend');
+          }
+          console.log('Turno, zona y trabajo actualizados en la base de datos correctamente.');
+        }
+      }
+    } catch (err) {
+      console.error('Error al sincronizar la actualización del turno con el backend:', err);
+    }
   };
 
   const handleEmployeeAcknowledgeShift = async (employeeId: string, day: number) => {
@@ -369,6 +408,7 @@ export default function App() {
         startTime: '-',
         endTime: '-',
         location: 'No aplica',
+        jobId: '',
         isRest: true,
       });
 
@@ -377,13 +417,34 @@ export default function App() {
           const targetEmp = employees.find((e) => e.id === targetReq.employeeId);
           const targetShift = targetEmp?.shifts[targetReq.day];
 
-          if (targetShift?.id && typeof (api as any).updateShift === 'function') {
-            await (api as any).updateShift({
-              id: targetShift.id,
-              startTime: '-',
-              endTime: '-',
-              isRest: true,
-            });
+          if (targetShift?.id) {
+            if (typeof (api as any).updateShift === 'function') {
+              await (api as any).updateShift(targetShift.id, {
+                startTime: null,
+                endTime: null,
+                isRest: true,
+              });
+            } else {
+              const tokenData = localStorage.getItem('token') || localStorage.getItem('access_token');
+              const cleanToken = tokenData?.startsWith('"') ? JSON.parse(tokenData) : tokenData;
+
+              const response = await fetch(`http://localhost:3000/shift/${targetShift.id}`, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${cleanToken}`,
+                },
+                body: JSON.stringify({
+                  startTime: null,
+                  endTime: null,
+                  isRest: true,
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error('Fallo al actualizar el turno en el backend');
+              }
+            }
           }
         }
       } catch (err) {
@@ -421,6 +482,7 @@ export default function App() {
     startTime: string;
     endTime: string;
     location: string;
+    jobId?: string;
   }) => {
     const { hours, type } = classifyShift(newShift.startTime, newShift.endTime);
     const now = new Date();
@@ -446,6 +508,7 @@ export default function App() {
               hours,
               label: `Turno Asignado (${hours}h)`,
               location: newShift.location,
+              jobId: newShift.jobId,
             },
           },
         };

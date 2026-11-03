@@ -3,6 +3,7 @@ import {
   X,
   Clock,
   MapPin,
+  Briefcase,
   User,
   Calendar,
   ShieldCheck,
@@ -12,6 +13,7 @@ import {
   Save,
 } from 'lucide-react';
 import { Shift, Employee, UserRole } from '../types/schedule';
+import { api } from '../services/api';
 
 interface ShiftDetailModalProps {
   shift: Shift | null;
@@ -25,6 +27,7 @@ interface ShiftDetailModalProps {
     startTime: string;
     endTime: string;
     location: string;
+    jobId: string;
     isRest: boolean;
   }) => void;
   onEmployeeAcknowledgeShift: (employeeId: string, day: number, shiftId?: string) => void;
@@ -37,6 +40,7 @@ interface ShiftDetailModalProps {
     currentSchedule: string;
     reason: string;
   }) => void;
+  backendOnline?: boolean;
 }
 
 export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
@@ -48,25 +52,75 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
   onSupervisorUpdateShift,
   onEmployeeAcknowledgeShift,
   onEmployeeRequestChange,
+  backendOnline = true,
 }) => {
   const [editStart, setEditStart] = useState('06:00');
   const [editEnd, setEditEnd] = useState('14:00');
-  const [editLocation, setEditLocation] = useState('Parque Comfama Rionegro');
+  const [editLocation, setEditLocation] = useState('Zona Transporte');
+  const [editJobId, setEditJobId] = useState<string>('');
   const [isRestDay, setIsRestDay] = useState(false);
   const [changeReason, setChangeReason] = useState('Cita médica programada');
   const [customNote, setCustomNote] = useState('');
   const [feedbackBanner, setFeedbackBanner] = useState<string | null>(null);
 
+  // Estados para las zonas y trabajos dinámicos de la base de datos
+  const [zonesList, setZonesList] = useState<string[]>([
+    'Zona Transporte',
+    'Casa De Convenciones',
+    'Zona norte',
+    'Espacios de Educación',
+    'Administración',
+    'Zona 2',
+    'Zona Húmeda',
+    'Tutucán',
+  ]);
+
+  const [jobsList, setJobsList] = useState<Array<{ id: string; title: string }>>([]);
+
   useEffect(() => {
+    // Cargar zonas y trabajos de la base de datos al abrir el modal
+    const fetchData = async () => {
+      if (backendOnline) {
+        try {
+          if (typeof api.getZones === 'function') {
+            const data = await api.getZones();
+            if (Array.isArray(data) && data.length > 0) {
+              const formattedZones = data.map((z: any) => (typeof z === 'object' ? z.name : z));
+              setZonesList(formattedZones);
+            }
+          }
+        } catch (err) {
+          console.error('Error al cargar zonas:', err);
+        }
+
+        try {
+          if (typeof api.getJobs === 'function') {
+            const jobsData = await api.getJobs();
+            if (Array.isArray(jobsData)) {
+              setJobsList(jobsData);
+            }
+          }
+        } catch (err) {
+          console.error('Error al cargar trabajos:', err);
+        }
+      }
+    };
+
     if (shift) {
       setEditStart(shift.startTime === '-' ? '06:00' : shift.startTime);
       setEditEnd(shift.endTime === '-' ? '14:00' : shift.endTime);
-      setEditLocation(shift.location);
+      setEditLocation(shift.location || 'Zona Transporte');
+
+      // Capturamos correctamente el ID del trabajo asignado actual
+      const assignedJobId = shift.jobId || (shift as any).job || '';
+      setEditJobId(assignedJobId);
+
       setIsRestDay(shift.type === 'REST');
       setFeedbackBanner(null);
       setCustomNote('');
+      fetchData();
     }
-  }, [shift]);
+  }, [shift, backendOnline]);
 
   if (!shift || !employee) return null;
 
@@ -88,6 +142,14 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
 
   const typeInfo = getTypeLabel(shift.type);
 
+  // Encontrar el título del trabajo actual para mostrarlo en modo lectura
+  const currentJobTitle =
+    jobsList.find((j) => j.id === editJobId)?.title ||
+    jobsList.find((j) => j.id === shift.jobId)?.title ||
+    (typeof (shift as any).job === 'object' ? (shift as any).job?.title : null) ||
+    (shift as any).jobTitle ||
+    'Sin trabajo asignado';
+
   const handleSaveSupervisorChanges = (e: React.FormEvent) => {
     e.preventDefault();
     onSupervisorUpdateShift({
@@ -96,13 +158,16 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
       startTime: editStart,
       endTime: editEnd,
       location: editLocation,
+      jobId: editJobId,
       isRest: isRestDay,
     });
-    setFeedbackBanner('Horario actualizado correctamente en la malla.');
+    // Actualizamos localmente el turno para reflejar el cambio de inmediato
+    shift.location = editLocation;
+    shift.jobId = editJobId;
+    setFeedbackBanner('Horario y trabajo actualizados correctamente en la malla.');
   };
 
   const handleConfirmAttendance = () => {
-    // Enviamos employee.id, shift.day y shift.id para que la API del backend persista el cambio
     onEmployeeAcknowledgeShift(employee.id, shift.day, shift.id);
     setFeedbackBanner('Has confirmado tu asistencia para este turno.');
   };
@@ -122,7 +187,7 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
       currentSchedule:
         shift.type === 'REST'
           ? 'Día Libre'
-          : `${shift.startTime} - ${shift.endTime}`,
+          : `${shift.startTime} - ${shift.endTime} (${shift.hours}h)`,
       reason: fullReason,
     });
     setFeedbackBanner(
@@ -201,8 +266,16 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
             <div className="detail-item">
               <MapPin size={18} className="detail-icon" />
               <div>
-                <div className="detail-label">Sede / Ubicación</div>
-                <div className="detail-val">{shift.location}</div>
+                <div className="detail-label">Zona Asignada</div>
+                <div className="detail-val">{editLocation}</div>
+              </div>
+            </div>
+
+            <div className="detail-item" style={{ gridColumn: 'span 2' }}>
+              <Briefcase size={18} className="detail-icon" />
+              <div>
+                <div className="detail-label">Trabajo Asignado</div>
+                <div className="detail-val">{currentJobTitle}</div>
               </div>
             </div>
           </div>
@@ -229,31 +302,63 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
               {!isRestDay && (
                 <div className="role-form-row">
                   <div className="role-field">
-                    <label>Hora Entrada</label>
+                    <label>Hora Entrada (06:00 - 21:00)</label>
                     <input
                       type="time"
+                      min="06:00"
+                      max="21:00"
                       value={editStart}
                       onChange={(e) => setEditStart(e.target.value)}
+                      required
                     />
                   </div>
                   <div className="role-field">
-                    <label>Hora Salida</label>
+                    <label>Hora Salida (06:00 - 21:00)</label>
                     <input
                       type="time"
+                      min="06:00"
+                      max="21:00"
                       value={editEnd}
                       onChange={(e) => setEditEnd(e.target.value)}
+                      required
                     />
                   </div>
                 </div>
               )}
 
-              <div className="role-field">
-                <label>Sede / Zona Asignada</label>
-                <input
-                  type="text"
-                  value={editLocation}
-                  onChange={(e) => setEditLocation(e.target.value)}
-                />
+              <div className="role-form-row">
+                <div className="role-field">
+                  <label>Zona Asignada</label>
+                  <select
+                    className="form-control"
+                    value={editLocation}
+                    onChange={(e) => setEditLocation(e.target.value)}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+                  >
+                    {zonesList.map((zone, idx) => (
+                      <option key={idx} value={zone}>
+                        {zone}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="role-field">
+                  <label>Trabajo Asignado</label>
+                  <select
+                    className="form-control"
+                    value={editJobId}
+                    onChange={(e) => setEditJobId(e.target.value)}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+                  >
+                    <option value="">Selecciona un trabajo...</option>
+                    {jobsList.map((job) => (
+                      <option key={job.id} value={job.id}>
+                        {job.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <button type="submit" className="btn-role-submit">
@@ -275,7 +380,7 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
 
               <div className="employee-confirm-row">
                 <div>
-                  <strong>1. Confirmación de enterado</strong>
+                  <strong>Confirmación de enterado</strong>
                   <p>Notifica a tu supervisor que ya revisaste este horario.</p>
                 </div>
                 <button

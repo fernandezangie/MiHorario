@@ -23,6 +23,7 @@ export interface Shift {
   hours: number;
   label: string;
   location: string;
+  jobId?: string; // 👈 Añadido para soportar el trabajo a realizar
   acknowledged?: boolean;
 }
 

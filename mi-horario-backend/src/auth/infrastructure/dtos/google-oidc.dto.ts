@@ -1,8 +1,14 @@
-import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class GoogleOidcLoginDto {
   @IsString()
-  @IsNotEmpty({ message: 'El idToken de Google OpenID Connect es obligatorio.' })
+  @IsNotEmpty({ message: 'GOOGLE_ID_TOKEN_REQUIRED' })
   @MaxLength(4096)
   idToken: string;
 
@@ -18,4 +24,3 @@ export class RefreshTokenDto {
   @MaxLength(4096)
   refreshToken?: string;
 }
-

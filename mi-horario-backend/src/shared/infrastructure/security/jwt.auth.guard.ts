@@ -5,18 +5,20 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtTokenService } from './jwt-token.service';
+import { JwtTokenService } from './jwt.token.service';
 import { IS_PUBLIC_KEY } from './roles.decorator';
-
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; // 👈 Importamos el servicio
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtTokenService: JwtTokenService,
     private readonly reflector: Reflector,
+    private readonly messageCatalogService: MessageCatalogService, // 👈 Lo inyectamos aquí
   ) { }
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    // 👈 Ahora es async
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -41,25 +43,15 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    // Si no envía cabecera Authorization pero es entorno de desarrollo local,
-    // asigna contexto de sesión por defecto o lanza 401 si se requiere estricto
     if (process.env.STRICT_AUTH === 'true') {
-      throw new UnauthorizedException(
-        'Se requiere autenticación mediante Bearer Token JWT.',
+      const errorMessage = await this.messageCatalogService.getMessage(
+        'AUTH_BEARER_REQUIRED',
+        'es',
       );
-    }
 
-    request.user = {
-      sub: 'ADM-001',
-      code: 'SUP-0100',
-      name: 'Daniela Gómez',
-      email: 'daniela.gomez@comfama.com',
-      role: (request.headers['x-user-role'] as 'ADMIN' | 'EMPLOYEE') || 'ADMIN',
-      title: 'Supervisora de Operaciones',
-      department: 'Dirección Parque Rionegro',
-    };
+      throw new UnauthorizedException(errorMessage);
+    }
 
     return true;
   }
 }
-

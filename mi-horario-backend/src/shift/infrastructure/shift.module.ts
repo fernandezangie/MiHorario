@@ -7,7 +7,7 @@ import { AssignShiftToEmployeeUseCase } from '@shift/application/usecases/assign
 import { ListShiftsUseCase } from '@shift/application/usecases/list.shifts.use.case';
 import { FindShiftByIdUseCase } from '@shift/application/usecases/find.shift.by.id.use.case';
 import { AcknowledgeShiftUseCase } from '@shift/application/usecases/acknowledge.shift.use.case';
-import { UpdateShiftUseCase } from '@shift/application/usecases/update.shift.use.case'; // 👈 1. Importar nuevo caso de uso
+import { UpdateShiftUseCase } from '@shift/application/usecases/update.shift.use.case';
 import { EmployeeModule } from '@employee/infrastructure/employee.module';
 import { MessagingModule } from '@shared/infrastructure/messaging/messaging.module';
 import { CustomCacheModule } from '@shared/infrastructure/cache/cache.module';
@@ -25,7 +25,7 @@ import { CustomCacheModule } from '@shared/infrastructure/cache/cache.module';
     ListShiftsUseCase,
     FindShiftByIdUseCase,
     AcknowledgeShiftUseCase,
-    UpdateShiftUseCase, // 👈 2. Registrar en providers
+    UpdateShiftUseCase,
     {
       provide: 'ShiftRepositoryPort',
       useClass: ShiftTypeormRepository,
@@ -36,7 +36,7 @@ import { CustomCacheModule } from '@shared/infrastructure/cache/cache.module';
     ListShiftsUseCase,
     FindShiftByIdUseCase,
     AcknowledgeShiftUseCase,
-    UpdateShiftUseCase, // 👈 3. Exportar por si otro módulo lo necesita
+    UpdateShiftUseCase,
   ],
 })
 export class ShiftModule {}

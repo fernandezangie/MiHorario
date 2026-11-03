@@ -9,17 +9,12 @@ const scrypt = promisify(scryptCb) as (
 
 const KEY_LENGTH = 64;
 
-/**
- * Convierte una contraseña en un texto irreversible: "scrypt$<sal>$<hash>".
- * Usa scrypt (incluido en Node.js, sin librerías extra) con una sal aleatoria por usuario.
- */
 export async function hashPassword(plain: string): Promise<string> {
   const salt = randomBytes(16);
   const hash = await scrypt(plain, salt, KEY_LENGTH);
   return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`;
 }
 
-/** Compara una contraseña escrita con el hash guardado, en tiempo constante. */
 export async function verifyPassword(
   plain: string,
   stored: string,

@@ -20,10 +20,9 @@ export class ParameterCatalogService {
     return await this.cacheService.get<T>(`${this.PREFIX}${key}`);
   }
 
-  // Inicializar parámetros por defecto basados en normativas o restricciones
   async loadDefaultParameters(): Promise<void> {
-    await this.setParameter('max_weekly_hours', 48); // Ley laboral en Colombia
-    await this.setParameter('min_rest_hours', 11); // Descanso mínimo entre turnos
-    await this.setParameter('max_distance_km', 30); // Distancia máxima entre zonas asignadas
+    await this.setParameter('max_weekly_hours', 48);
+    await this.setParameter('min_rest_hours', 11);
+    await this.setParameter('max_distance_km', 30);
   }
 }

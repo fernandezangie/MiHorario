@@ -1,10 +1,5 @@
 import * as Joi from 'joi';
 
-/**
- * Building Block: Secret Manager & Environment Validation (ADR-0001 / ADR-0006)
- * Valida las variables de entorno al iniciar. Los secretos nunca van en el código:
- * las contraseñas llegan por *_FILE (Docker secrets) y el JWT_SECRET por entorno.
- */
 export const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test')
@@ -29,15 +24,17 @@ export const validationSchema = Joi.object({
   REDIS_PASSWORD_FILE: Joi.string().allow('').optional(),
   REDIS_URL: Joi.string().optional(),
 
-  // Identidad: JWT + Google OpenID Connect (ADR-0001 / ADR-0006 / ADR-0011)
-  // Se puede inyectar por archivo Docker Secret (JWT_SECRET_FILE) o variable de entorno (JWT_SECRET).
-  JWT_SECRET_FILE: Joi.string().allow('').optional(),
-  JWT_SECRET: Joi.string().allow('').optional(),
+  JWT_SECRET: Joi.string()
+    .min(16)
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.required(),
+      otherwise: Joi.string().default('dev-only-jwt-secret-change-me'),
+    }),
   JWT_EXPIRES_IN: Joi.string().default('8h'),
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
   OIDC_ISSUER: Joi.string().default('https://accounts.google.com'),
 
-  // Rate limiting del API Gateway (ADR-0001 / ADR-0009)
   RATE_LIMIT_WINDOW_MS: Joi.number().default(60000),
   RATE_LIMIT_MAX_REQUESTS: Joi.number().default(120),
 }).unknown(true);
