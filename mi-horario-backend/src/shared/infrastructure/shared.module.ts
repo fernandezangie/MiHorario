@@ -12,19 +12,18 @@ import { NotificationService } from './messaging/notification.service';
     MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-
         return {
           transport: {
-            host: config.get<string>('MAIL_HOST'),
-            port: Number(config.get<string>('MAIL_PORT') ?? 587),
-            secure: false, // false para 587 (STARTTLS), true para 465
+            host: config.get<string>('MAIL_HOST') || 'smtp.gmail.com',
+            port: Number(config.get<string>('MAIL_PORT') ?? 465),
+            secure: true, // true para el puerto 465 (Recomendado y estable para Gmail con SSL)
             auth: {
               user: config.get<string>('MAIL_USER'),
               pass: config.get<string>('MAIL_PASS'),
             },
           },
           defaults: {
-            from: '"MiHorario Notificaciones" <no-reply@mihorario.com>',
+            from: `"MiHorario Notificaciones" <${config.get<string>('MAIL_USER')}>`,
           },
         };
       },
