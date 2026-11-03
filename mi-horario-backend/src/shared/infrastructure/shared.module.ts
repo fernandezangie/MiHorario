@@ -5,6 +5,7 @@ import { CacheService } from './cache/cache.service';
 import { MessageCatalogService } from './messaging/message.catalog.service';
 import { MessageTestController } from './messaging/message.test.controller';
 import { NotificationService } from './messaging/notification.service';
+import { getSecret } from './config/secret.loader';
 
 @Global()
 @Module({
@@ -12,6 +13,9 @@ import { NotificationService } from './messaging/notification.service';
     MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
+        const mailPass =
+          getSecret('MAIL_PASS', 'MAIL_PASS_FILE') ||
+          config.get<string>('MAIL_PASS');
         return {
           transport: {
             host: config.get<string>('MAIL_HOST') || 'smtp.gmail.com',
@@ -19,7 +23,7 @@ import { NotificationService } from './messaging/notification.service';
             secure: true, // true para el puerto 465 (Recomendado y estable para Gmail con SSL)
             auth: {
               user: config.get<string>('MAIL_USER'),
-              pass: config.get<string>('MAIL_PASS'),
+              pass: mailPass,
             },
           },
           defaults: {

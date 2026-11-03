@@ -26,11 +26,9 @@ export const validationSchema = Joi.object({
 
   JWT_SECRET: Joi.string()
     .min(16)
-    .when('NODE_ENV', {
-      is: 'production',
-      then: Joi.required(),
-      otherwise: Joi.string().default('dev-only-jwt-secret-change-me'),
-    }),
+    .default('comfama-mihorario-jwt-secret-key-2026-adr0006')
+    .optional(),
+  JWT_SECRET_FILE: Joi.string().allow('').optional(),
   JWT_EXPIRES_IN: Joi.string().default('8h'),
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
   OIDC_ISSUER: Joi.string().default('https://accounts.google.com'),

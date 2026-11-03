@@ -219,7 +219,7 @@ export default function App() {
     location: string;
     jobId: string;
     isRest: boolean;
-  }) => {
+  }): Promise<string | undefined> => {
     const startH = parseInt(updated.startTime.split(':')[0], 10) || 6;
     const endH = parseInt(updated.endTime.split(':')[0], 10) || 14;
 
@@ -262,49 +262,41 @@ export default function App() {
     );
 
     // 2. Sincronizamos la actualización, la zona y el trabajo con el backend
+    let catalogMessage: string | undefined;
     try {
       if (backendOnline) {
         const targetEmp = employees.find((e) => e.id === updated.employeeId);
         const targetShift = targetEmp?.shifts[updated.day];
 
         if (targetShift?.id) {
-          const tokenData = localStorage.getItem('token') || localStorage.getItem('access_token');
-          const cleanToken = tokenData?.startsWith('"') ? JSON.parse(tokenData) : tokenData;
-
-          const response = await fetch(`http://localhost:3000/shift/${targetShift.id}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${cleanToken}`,
-            },
-            body: JSON.stringify({
-              startTime: updated.isRest ? null : updated.startTime,
-              endTime: updated.isRest ? null : updated.endTime,
-              isRest: updated.isRest,
-              zone: updated.location,
-              location: updated.location,
-              jobId: updated.jobId,
-            }),
+          const res = await api.updateShift(targetShift.id, {
+            startTime: updated.isRest ? undefined : updated.startTime,
+            endTime: updated.isRest ? undefined : updated.endTime,
+            isRest: updated.isRest,
+            zone: updated.location,
+            jobId: updated.jobId,
           });
-
-          if (!response.ok) {
-            throw new Error('Fallo al actualizar el turno en el backend');
-          }
-          console.log('Turno, zona y trabajo actualizados en la base de datos correctamente.');
+          catalogMessage = res?.message;
         }
       }
     } catch (err) {
       console.error('Error al sincronizar la actualización del turno con el backend:', err);
     }
+    return catalogMessage;
   };
 
-  const handleEmployeeAcknowledgeShift = async (employeeId: string, day: number) => {
+  const handleEmployeeAcknowledgeShift = async (
+    employeeId: string,
+    day: number
+  ): Promise<string | undefined> => {
     const targetEmp = employees.find((e) => e.id === employeeId);
     const targetShift = targetEmp?.shifts[day];
+    let catalogMessage: string | undefined;
 
     try {
       if (backendOnline && targetShift?.id) {
-        await api.acknowledgeShift(targetShift.id);
+        const res = await api.acknowledgeShift(targetShift.id);
+        catalogMessage = res?.message;
       }
     } catch (err) {
       console.error('Error persistiendo la confirmación en el backend:', err);
@@ -329,6 +321,7 @@ export default function App() {
     );
 
     await syncWithBackend();
+    return catalogMessage;
   };
 
   const handleConfirmAllOwnShifts = async () => {

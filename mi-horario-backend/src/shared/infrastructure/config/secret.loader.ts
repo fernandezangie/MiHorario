@@ -10,6 +10,10 @@ export function getSecret(envVarName: string, fileEnvVarName: string): string {
       filePath = path.resolve(process.cwd(), 'secrets/redis_password.txt');
     } else if (envVarName.includes('DB')) {
       filePath = path.resolve(process.cwd(), 'secrets/db_password.txt');
+    } else if (envVarName.includes('JWT')) {
+      filePath = path.resolve(process.cwd(), 'secrets/jwt_secret.txt');
+    } else if (envVarName.includes('MAIL')) {
+      filePath = path.resolve(process.cwd(), 'secrets/mail_password.txt');
     }
   }
 

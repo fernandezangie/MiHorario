@@ -47,16 +47,33 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const res: any = exception.getResponse();
       if (typeof res === 'string') {
-        message = res;
+        message = await this.messageCatalogService
+          .getMessage(res, 'es')
+          .catch(() => res);
       } else if (Array.isArray(res?.message)) {
-        message = res.message.join(', ');
+        const translated = await Promise.all(
+          res.message.map((m: string) =>
+            this.messageCatalogService.getMessage(m, 'es').catch(() => m),
+          ),
+        );
+        message = translated.join(', ');
       } else if (res?.message) {
-        message = res.message;
+        message = await this.messageCatalogService
+          .getMessage(res.message, 'es')
+          .catch(() => res.message);
       }
     } else if (exception instanceof Error) {
       this.logger.error(
         `[${traceId}] Unhandled Exception on ${request.method} ${request.url}: ${exception.message}`,
       );
+      if (exception.message) {
+        const translated = await this.messageCatalogService
+          .getMessage(exception.message, 'es')
+          .catch(() => exception.message);
+        if (translated) {
+          message = translated;
+        }
+      }
     }
 
     response.setHeader('X-Request-Id', traceId);

@@ -31,4 +31,10 @@ export default () => ({
     rateLimitMaxRequests:
       parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 120,
   },
+  mail: {
+    host: process.env.MAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.MAIL_PORT, 10) || 465,
+    user: process.env.MAIL_USER || '',
+    password: getSecret('MAIL_PASS', 'MAIL_PASS_FILE'),
+  },
 });

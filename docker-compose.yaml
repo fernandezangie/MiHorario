@@ -23,10 +23,15 @@ services:
       - REDIS_TLS=false
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - JWT_SECRET_FILE=/run/secrets/jwt_secret
+      - MAIL_HOST=smtp.gmail.com
+      - MAIL_PORT=465
+      - MAIL_USER=jrodriguezgiraldo8@gmail.com
+      - MAIL_PASS_FILE=/run/secrets/mail_password
     secrets:
       - db_password
       - redis_password
       - jwt_secret
+      - mail_password
     restart: unless-stopped
 
   frontend:
@@ -47,3 +52,5 @@ secrets:
     file: ./mi-horario-backend/secrets/redis_password.txt
   jwt_secret:
     file: ./mi-horario-backend/secrets/jwt_secret.txt
+  mail_password:
+    file: ./mi-horario-backend/secrets/mail_password.txt

@@ -4,11 +4,12 @@ import { EmployeeEmail } from '@employee/domain/model/value-objects/employee.ema
 import { EmployeeStatus } from '@employee/domain/model/enums/employee.status.enum';
 import { EmployeeRepositoryPort } from '@employee/domain/ports/employee.repository.port';
 import { CreateEmployeeDto } from '@employee/application/dtos/create.employee.dto';
-import { Inject, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { NotificationService } from '@shared/infrastructure/messaging/notification.service';
 import { EmployeeName } from '@employee/domain/model/value-objects/employee.name.vo';
 import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; //
 
+@Injectable()
 export class CreateEmployeeUseCase {
   constructor(
     @Inject('EmployeeRepositoryPort')
