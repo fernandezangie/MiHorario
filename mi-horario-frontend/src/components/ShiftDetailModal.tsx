@@ -27,7 +27,7 @@ interface ShiftDetailModalProps {
     location: string;
     isRest: boolean;
   }) => void;
-  onEmployeeAcknowledgeShift: (employeeId: string, day: number) => void;
+  onEmployeeAcknowledgeShift: (employeeId: string, day: number, shiftId?: string) => void;
   onEmployeeRequestChange: (payload: {
     employeeId: string;
     employeeName: string;
@@ -102,7 +102,8 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
   };
 
   const handleConfirmAttendance = () => {
-    onEmployeeAcknowledgeShift(employee.id, shift.day);
+    // Enviamos employee.id, shift.day y shift.id para que la API del backend persista el cambio
+    onEmployeeAcknowledgeShift(employee.id, shift.day, shift.id);
     setFeedbackBanner('Has confirmado tu asistencia para este turno.');
   };
 
@@ -207,7 +208,7 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
           </div>
 
           {/* ==========================================================
-              PERSPECTIVA 1: SUPERVISOR (PUEDE MODIFICAR / REASIGNAR)
+              PERSPECTIVA 1: SUPERVISOR (MODIFICAR / REASIGNAR)
               ========================================================== */}
           {isAdmin && (
             <form onSubmit={handleSaveSupervisorChanges} className="role-action-panel">

@@ -40,7 +40,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
 
   // Shift Form
   const [shiftEmpId, setShiftEmpId] = useState(employees[0]?.id || 'EMP-1001');
-  const [shiftDay, setShiftDay] = useState(1);
+  const [shiftDay, setShiftDay] = useState(new Date().getDate());
   const [shiftStart, setShiftStart] = useState('08:00');
   const [shiftEnd, setShiftEnd] = useState('16:00');
   const [shiftZone, setShiftZone] = useState('Sede Parque Rionegro');
@@ -53,6 +53,12 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   // Message Catalog Test
   const [catalogCode, setCatalogCode] = useState('SHIFT_ASSIGNED');
   const [catalogResult, setCatalogResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (employees.length > 0 && !employees.some((e) => e.id === shiftEmpId)) {
+      setShiftEmpId(employees[0].id);
+    }
+  }, [employees, shiftEmpId]);
 
   if (!isOpen) return null;
 
@@ -90,12 +96,19 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     setStatusMsg(null);
     try {
       if (backendOnline) {
-        const dayStr = shiftDay.toString().padStart(2, '0');
+        // Generar fecha usando el año y mes actual del sistema (Noviembre 2026)
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+        const dayStr = String(shiftDay).padStart(2, '0');
+
+        const startTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftStart}:00.000Z`;
+        const endTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftEnd}:00.000Z`;
+
         await api.createShift({
           employeeId: shiftEmpId,
-          jobId: 'JOB-DEFAULT',
-          startTime: `2026-10-${dayStr}T${shiftStart}:00.000Z`,
-          endTime: `2026-10-${dayStr}T${shiftEnd}:00.000Z`,
+          startTime,
+          endTime,
         });
       }
       onShiftCreated({
@@ -105,10 +118,14 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
         endTime: shiftEnd,
         location: shiftZone,
       });
+
+      // Obtener el nombre del mes actual en español ("noviembre")
+      const nombreMes = new Date().toLocaleDateString('es-ES', { month: 'long' });
       const empObj = employees.find((item) => item.id === shiftEmpId);
+
       setStatusMsg({
         type: 'ok',
-        text: `Turno asignado a ${empObj?.name || shiftEmpId} para el Día ${shiftDay} (${shiftStart} - ${shiftEnd}).`,
+        text: `Turno asignado a ${empObj?.name || shiftEmpId} para el ${shiftDay} de ${nombreMes} (${shiftStart} - ${shiftEnd}).`,
       });
     } catch (err: any) {
       setStatusMsg({ type: 'err', text: err.message || 'Error al asignar turno' });
@@ -177,7 +194,6 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
           </button>
         </div>
 
-        {/* Pestañas claras */}
         <div className="modal-tabs-bar">
           <button
             type="button"
@@ -239,10 +255,10 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
               </div>
               <div className="form-row-3">
                 <div className="form-group">
-                  <label className="detail-label">Día del Mes (1-30)</label>
+                  <label className="detail-label">Día del Mes</label>
                   <input
                     type="number"
-                    min={1}
+                    min={new Date().getDate()}
                     max={30}
                     className="form-control"
                     value={shiftDay}

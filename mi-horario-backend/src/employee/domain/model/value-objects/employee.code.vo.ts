@@ -11,7 +11,7 @@ export class EmployeeCode {
       throw new Error('EMPLOYEE_CODE_REQUIRED');
     }
     // Ejemplo de regla: el código debe tener al menos 4 caracteres alfanuméricos en mayúscula y/o números
-    const codeRegex = /^[A-Z0-9]{4,}$/;
+    const codeRegex = /^[A-Z0-9][A-Z0-9-]{3,}$/;
     if (!codeRegex.test(code)) {
       // Pasamos el código dinámico usando el identificador o formato esperado
       throw new Error(`EMPLOYEE_CODE_INVALID_FORMAT:${code}`);

@@ -20,11 +20,13 @@ import {
   UserRole,
 } from './types/schedule';
 import { api } from './services/api';
+import { classifyShift, shiftFromBackend } from './utils/shiftMapper';
 
+const DEMO_MODE = import.meta.env.VITE_ALLOW_OFFLINE_DEMO === 'true';
 const TOTAL_EMPLOYEES = 50;
 const TOTAL_DAYS = 30;
 
-export function App() {
+export default function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [filterText, setFilterText] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('ALL');
@@ -39,63 +41,91 @@ export function App() {
     generateMockEmployees(TOTAL_EMPLOYEES, TOTAL_DAYS)
   );
 
-  // Solicitudes de cambio de turno entre el Perfil Empleado y el Perfil Supervisor
-  const [shiftRequests, setShiftRequests] = useState<ShiftChangeRequest[]>([
-    {
-      id: 'REQ-INIT-1',
-      employeeId: 'EMP-1001',
-      employeeName: 'Carlos Rodríguez',
-      employeeCode: 'COM-2000',
-      day: 4,
-      dateStr: '2026-10-04',
-      currentSchedule: '06:00 - 14:00',
-      reason: 'Cita médica programada: Control odontológico a las 09:00 AM',
-      status: 'PENDING',
-      createdAt: 'Hace 15 min',
-    },
-  ]);
+  // Persistencia local para las solicitudes de cambio de turno / día libre
+  const [shiftRequests, setShiftRequests] = useState<ShiftChangeRequest[]>(() => {
+    const saved = localStorage.getItem('comfama_shift_requests');
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* fallback */ }
+    }
+    return [
+      {
+        id: 'REQ-INIT-1',
+        employeeId: 'EMP-1001',
+        employeeName: 'Carlos Rodríguez',
+        employeeCode: 'COM-2000',
+        day: 4,
+        dateStr: '2026-11-04',
+        currentSchedule: '06:00 - 14:00',
+        reason: 'Cita médica programada: Control odontológico a las 09:00 AM',
+        status: 'PENDING',
+        createdAt: 'Hace 15 min',
+      },
+    ];
+  });
 
   const syncWithBackend = useCallback(async () => {
     const isUp = await api.checkBackendHealth();
     setBackendOnline(isUp);
+    if (!isUp) return;
 
-    if (isUp) {
-      try {
-        const dbEmployees = await api.getEmployees();
-        if (Array.isArray(dbEmployees) && dbEmployees.length > 0) {
-          setEmployees((prev) => {
-            const existingCodes = new Set(prev.map((e) => e.code));
-            const mappedNew: Employee[] = dbEmployees
-              .filter((dbEmp: any) => {
-                const code = dbEmp.code?.value ?? dbEmp.code;
-                return code && !existingCodes.has(code);
-              })
-              .map((dbEmp: any, idx: number) => {
-                const id = dbEmp.id?.value ?? dbEmp.id ?? `EMP-DB-${idx}`;
-                const code = dbEmp.code?.value ?? dbEmp.code ?? `COM-DB-${idx}`;
-                const name = dbEmp.name?.value ?? dbEmp.name ?? 'Colaborador Comfama';
-                return {
-                  id,
-                  code,
-                  name,
-                  role: 'Operador Parque',
-                  department: 'Operaciones Parque',
-                  avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
-                  shifts: generateShiftsForEmployee(id, idx + 50, TOTAL_DAYS),
-                };
-              });
-            return [...mappedNew, ...prev];
-          });
-        }
-      } catch {
-        // Conserva la programación en memoria si la base de datos no tiene registros iniciales
+    try {
+      const [dbEmployees, dbShifts] = await Promise.all([
+        api.getEmployees(),
+        api.getShifts().catch(() => []),
+      ]);
+
+      if (Array.isArray(dbEmployees) && dbEmployees.length > 0) {
+        const unwrap = (v: any) =>
+          v && typeof v === 'object' && 'value' in v ? v.value : v;
+
+        const shiftsByEmployee = new Map<string, Record<number, Shift>>();
+        (Array.isArray(dbShifts) ? dbShifts : []).forEach((row: any) => {
+          const shift = shiftFromBackend(row);
+          if (!shift) return;
+          const bucket = shiftsByEmployee.get(shift.employeeId) ?? {};
+          bucket[shift.day] = shift;
+          shiftsByEmployee.set(shift.employeeId, bucket);
+        });
+
+        const realEmployees: Employee[] = dbEmployees.map(
+          (dbEmp: any, idx: number) => {
+            const id = String(unwrap(dbEmp.id));
+            return {
+              id,
+              code: String(unwrap(dbEmp.code) ?? id),
+              name: unwrap(dbEmp.name) ?? 'Colaborador Comfama',
+              email: unwrap(dbEmp.email),
+              role: 'Operador Parque',
+              department: 'Operaciones Parque',
+              avatarColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+              shifts: shiftsByEmployee.get(id) ?? {},
+            };
+          }
+        );
+        setEmployees(realEmployees);
       }
+    } catch {
+      // Conserva la programación en memoria si el backend no responde
     }
   }, []);
 
   useEffect(() => {
     syncWithBackend();
   }, [syncWithBackend]);
+
+  useEffect(() => {
+    if (currentUser) syncWithBackend();
+  }, [currentUser?.id, syncWithBackend]);
+
+  useEffect(() => {
+    api.onSessionExpired(() => setCurrentUser(null));
+    return () => api.onSessionExpired(null);
+  }, []);
+
+  const handleLogout = async () => {
+    await api.logout();
+    setCurrentUser(null);
+  };
 
   const days = useMemo(() => {
     return Array.from({ length: TOTAL_DAYS }, (_, i) => i + 1);
@@ -109,34 +139,41 @@ export function App() {
 
   const ownEmployeeRecord = useMemo(() => {
     if (!currentUser) return undefined;
-    return (
-      employees.find(
-        (e) =>
-          e.code === currentUser.code ||
-          e.name.toLowerCase() === currentUser.name.toLowerCase()
-      ) ?? employees[0]
+    const found = employees.find(
+      (e) =>
+        e.code.toLowerCase() === currentUser.code.toLowerCase() ||
+        e.name.toLowerCase() === currentUser.name.toLowerCase()
     );
+    if (found) return found;
+
+    return {
+      id: currentUser.code,
+      code: currentUser.code,
+      name: currentUser.name,
+      email: `${currentUser.code.toLowerCase()}@comfama.com`,
+      role: currentUser.title,
+      department: currentUser.department,
+      avatarColor: '#ED217A',
+      shifts: generateShiftsForEmployee(currentUser.code, 1, TOTAL_DAYS),
+    };
   }, [employees, currentUser]);
 
   const filteredEmployees = useMemo(() => {
     if (!currentUser) return [];
 
-    // PERSPECTIVA EMPLEADO
     if (currentUser.role === 'EMPLOYEE') {
       if (employeeViewScope === 'OWN') {
-        return ownEmployeeRecord ? [ownEmployeeRecord] : employees.slice(0, 1);
+        return ownEmployeeRecord ? [ownEmployeeRecord] : [];
       }
-      // Si elige ver compañeros de su área, pone su propia fila de primera
+
       const targetDept = ownEmployeeRecord?.department ?? currentUser.department;
       const areaPeers = employees.filter((e) => e.department === targetDept);
-      if (!ownEmployeeRecord) return areaPeers;
-      return [
-        ownEmployeeRecord,
-        ...areaPeers.filter((e) => e.id !== ownEmployeeRecord.id),
-      ];
+      if (ownEmployeeRecord && !areaPeers.some((e) => e.code === ownEmployeeRecord.code)) {
+        return [ownEmployeeRecord, ...areaPeers];
+      }
+      return areaPeers.length > 0 ? areaPeers : (ownEmployeeRecord ? [ownEmployeeRecord] : []);
     }
 
-    // PERSPECTIVA SUPERVISOR
     return employees.filter((emp) => {
       const matchesDept =
         selectedDepartment === 'ALL' || emp.department === selectedDepartment;
@@ -184,6 +221,7 @@ export function App() {
   }) => {
     const startH = parseInt(updated.startTime.split(':')[0], 10) || 6;
     const endH = parseInt(updated.endTime.split(':')[0], 10) || 14;
+
     const hours = updated.isRest
       ? 0
       : endH >= startH
@@ -221,7 +259,18 @@ export function App() {
     );
   };
 
-  const handleEmployeeAcknowledgeShift = (employeeId: string, day: number) => {
+  const handleEmployeeAcknowledgeShift = async (employeeId: string, day: number) => {
+    const targetEmp = employees.find((e) => e.id === employeeId);
+    const targetShift = targetEmp?.shifts[day];
+
+    try {
+      if (backendOnline && targetShift?.id) {
+        await api.acknowledgeShift(targetShift.id);
+      }
+    } catch (err) {
+      console.error('Error persistiendo la confirmación en el backend:', err);
+    }
+
     setEmployees((prev) =>
       prev.map((emp) => {
         if (emp.id !== employeeId) return emp;
@@ -239,10 +288,28 @@ export function App() {
         };
       })
     );
+
+    await syncWithBackend();
   };
 
-  const handleConfirmAllOwnShifts = () => {
+  const handleConfirmAllOwnShifts = async () => {
     if (!ownEmployeeRecord) return;
+
+    try {
+      if (backendOnline) {
+        await Promise.all(
+          Object.values(ownEmployeeRecord.shifts).map((s) => {
+            if (s.id && !s.acknowledged) {
+              return api.acknowledgeShift(s.id).catch(() => {});
+            }
+            return Promise.resolve();
+          })
+        );
+      }
+    } catch (err) {
+      console.error('Error confirmando todos los turnos:', err);
+    }
+
     setEmployees((prev) =>
       prev.map((emp) => {
         if (emp.id !== ownEmployeeRecord.id) return emp;
@@ -256,6 +323,8 @@ export function App() {
         };
       })
     );
+
+    await syncWithBackend();
   };
 
   const handleEmployeeRequestChange = (payload: {
@@ -273,17 +342,25 @@ export function App() {
       status: 'PENDING',
       createdAt: 'Justo ahora',
     };
-    setShiftRequests((prev) => [newReq, ...prev]);
+
+    setShiftRequests((prev) => {
+      const updated = [newReq, ...prev];
+      localStorage.setItem('comfama_shift_requests', JSON.stringify(updated));
+      return updated;
+    });
   };
 
-  const handleResolveRequest = (
+  const handleResolveRequest = async (
     reqId: string,
     status: 'APPROVED' | 'REJECTED'
   ) => {
     const targetReq = shiftRequests.find((r) => r.id === reqId);
-    setShiftRequests((prev) =>
-      prev.map((r) => (r.id === reqId ? { ...r, status } : r))
-    );
+
+    setShiftRequests((prev) => {
+      const updated = prev.map((r) => (r.id === reqId ? { ...r, status } : r));
+      localStorage.setItem('comfama_shift_requests', JSON.stringify(updated));
+      return updated;
+    });
 
     if (status === 'APPROVED' && targetReq) {
       handleSupervisorUpdateShift({
@@ -294,6 +371,24 @@ export function App() {
         location: 'No aplica',
         isRest: true,
       });
+
+      try {
+        if (backendOnline) {
+          const targetEmp = employees.find((e) => e.id === targetReq.employeeId);
+          const targetShift = targetEmp?.shifts[targetReq.day];
+
+          if (targetShift?.id && typeof (api as any).updateShift === 'function') {
+            await (api as any).updateShift({
+              id: targetShift.id,
+              startTime: '-',
+              endTime: '-',
+              isRest: true,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error al sincronizar la aprobación con el backend:', err);
+      }
     }
   };
 
@@ -304,7 +399,7 @@ export function App() {
     role: string;
     department: string;
   }) => {
-    const id = `EMP-${Date.now().toString().slice(-4)}`;
+    const id = newEmp.code;
     const created: Employee = {
       id,
       code: newEmp.code,
@@ -313,24 +408,25 @@ export function App() {
       role: newEmp.role,
       department: newEmp.department,
       avatarColor: '#ED217A',
-      shifts: generateShiftsForEmployee(id, employees.length + 1, TOTAL_DAYS),
+      shifts: backendOnline
+        ? {}
+        : generateShiftsForEmployee(id, employees.length + 1, TOTAL_DAYS),
     };
     setEmployees((prev) => [created, ...prev]);
   };
 
-  const handleShiftCreated = (newShift: {
+  const handleShiftCreated = async (newShift: {
     employeeId: string;
     day: number;
     startTime: string;
     endTime: string;
     location: string;
   }) => {
-    const startH = parseInt(newShift.startTime.split(':')[0], 10) || 8;
-    const endH = parseInt(newShift.endTime.split(':')[0], 10) || 16;
-    const hours = endH >= startH ? endH - startH : 24 - startH + endH;
-    let type: ShiftType = 'ORDINARY';
-    if (hours > 10) type = 'OVERTIME';
-    else if (startH >= 18 || endH <= 6) type = 'SURCHARGE';
+    const { hours, type } = classifyShift(newShift.startTime, newShift.endTime);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(newShift.day).padStart(2, '0');
 
     setEmployees((prev) =>
       prev.map((emp) => {
@@ -343,7 +439,7 @@ export function App() {
               id: `SHIFT-${emp.id}-D${newShift.day}-${Date.now()}`,
               employeeId: emp.id,
               day: newShift.day,
-              dateStr: `2026-10-${newShift.day.toString().padStart(2, '0')}`,
+              dateStr: `${currentYear}-${currentMonth}-${dayStr}`,
               startTime: newShift.startTime,
               endTime: newShift.endTime,
               type,
@@ -355,6 +451,8 @@ export function App() {
         };
       })
     );
+
+    await syncWithBackend();
   };
 
   if (!currentUser) {
@@ -379,7 +477,8 @@ export function App() {
         onResolveRequest={handleResolveRequest}
         onOpenManager={handleOpenManager}
         onSwitchRole={handleSwitchRole}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={handleLogout}
+        showRoleSwitcher={DEMO_MODE}
       />
 
       <ColorLegend />

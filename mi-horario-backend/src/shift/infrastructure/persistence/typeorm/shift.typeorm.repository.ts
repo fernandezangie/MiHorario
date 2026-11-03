@@ -25,8 +25,9 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
     return prop;
   }
 
-  private parseDate(dateProp: any): Date {
+  private parseDate(dateProp: any): Date | null {
     const val = this.extractValue(dateProp);
+    if (!val) return null; // Si es null o undefined (como en los días libres), lo permite
     return val instanceof Date ? val : new Date(val);
   }
 
@@ -35,9 +36,22 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
     const maxRetries = 3;
     let attempt = 0;
 
+    const shiftId = this.extractValue(s.id);
     const employeeId = this.extractValue(s.employeeId);
     const startTime = this.parseDate(s.startTime);
     const endTime = this.parseDate(s.endTime);
+    const status = this.extractValue(s.status);
+
+    const acknowledged =
+      typeof s.isAcknowledged === 'function'
+        ? s.isAcknowledged()
+        : (this.extractValue(s.acknowledged) ?? false);
+
+    // Extraemos isRest de la entidad
+    const isRest =
+      typeof s.getIsRest === 'function'
+        ? s.getIsRest()
+        : (this.extractValue(s.isRest) ?? false);
 
     while (attempt < maxRetries) {
       const queryRunner = this.dataSource.createQueryRunner();
@@ -45,27 +59,34 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
       await queryRunner.startTransaction('SERIALIZABLE');
 
       try {
-        // 1. Validación de solapamiento
-        const overlapping = await queryRunner.manager.findOne(ShiftOrmEntity, {
-          where: {
-            employeeId,
-            startTime: LessThanOrEqual(endTime),
-            endTime: MoreThanOrEqual(startTime),
-          },
-        });
-
-        if (overlapping) {
-          throw new ConflictException(
-            'El empleado ya cuenta con un turno asignado que se solapa en este horario.',
+        // Si es un día libre (isRest === true), permitimos startTime/endTime nulos y evitamos validación estricta de solapamiento si aplica, o validamos con fechas reales
+        if (!isRest && startTime && endTime) {
+          const overlapping = await queryRunner.manager.findOne(
+            ShiftOrmEntity,
+            {
+              where: {
+                employeeId,
+                startTime: LessThanOrEqual(endTime),
+                endTime: MoreThanOrEqual(startTime),
+              },
+            },
           );
+
+          if (overlapping && overlapping.id !== shiftId) {
+            throw new ConflictException(
+              'El empleado ya cuenta con un turno asignado que se solapa en este horario.',
+            );
+          }
         }
 
-        // 2. Preparar entidad ORM
         const ormEntity = new ShiftOrmEntity();
-        ormEntity.id = this.extractValue(s.id);
+        ormEntity.id = shiftId;
         ormEntity.employeeId = employeeId;
         ormEntity.startTime = startTime;
         ormEntity.endTime = endTime;
+        ormEntity.status = status;
+        ormEntity.acknowledged = acknowledged;
+        ormEntity.isRest = isRest; // 👈 ¡Guardado de isRest corregido!
 
         await queryRunner.manager.save(ormEntity);
         await queryRunner.commitTransaction();
@@ -73,8 +94,7 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
       } catch (error) {
         await queryRunner.rollbackTransaction();
 
-        // Manejo de reintentos CockroachDB (error 40001)
-        if (error.code === '40001' && attempt < maxRetries - 1) {
+        if (error.code === '40001' && attempt < maxRetries) {
           attempt++;
           await new Promise((resolve) =>
             setTimeout(resolve, 50 * Math.pow(2, attempt)),
@@ -104,6 +124,9 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
       employeeId: found.employeeId,
       startTime: found.startTime,
       endTime: found.endTime,
+      status: found.status,
+      acknowledged: found.acknowledged ?? false,
+      isRest: found.isRest ?? false, // 👈 ¡Cargado de isRest corregido!
     });
   }
 
@@ -116,6 +139,9 @@ export class ShiftTypeormRepository implements ShiftRepositoryPort {
         employeeId: item.employeeId,
         startTime: item.startTime,
         endTime: item.endTime,
+        status: item.status,
+        acknowledged: item.acknowledged ?? false,
+        isRest: item.isRest ?? false, // 👈 ¡Cargado de isRest corregido!
       });
     });
   }

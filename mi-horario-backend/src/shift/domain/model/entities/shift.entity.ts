@@ -2,15 +2,31 @@ import { Entity } from '@shared/domain/entity.base';
 
 export class ShiftEntity extends Entity<string> {
   private employeeId: string;
-  private startTime: Date;
-  private endTime: Date;
+  private startTime: Date | null;
+  private endTime: Date | null;
+  private acknowledged: boolean;
+  private isRest: boolean; // 👈 Propiedad para días libres
 
-  constructor(id: string, employeeId: string, startTime: Date, endTime: Date) {
+  constructor(
+    id: string,
+    employeeId: string,
+    startTime: Date | null,
+    endTime: Date | null,
+    acknowledged: boolean = false,
+    isRest: boolean = false, // 👈 Por defecto en false
+  ) {
     super(id);
     this.employeeId = employeeId;
-    this.validateDates(startTime, endTime);
+
+    // Solo validamos fechas si no es un día libre y existen ambos valores
+    if (!isRest && startTime && endTime) {
+      this.validateDates(startTime, endTime);
+    }
+
     this.startTime = startTime;
     this.endTime = endTime;
+    this.acknowledged = acknowledged;
+    this.isRest = isRest;
   }
 
   private validateDates(start: Date, end: Date): void {
@@ -27,11 +43,37 @@ export class ShiftEntity extends Entity<string> {
     return this.employeeId;
   }
 
-  public getStartTime(): Date {
+  public getStartTime(): Date | null {
     return this.startTime;
   }
 
-  public getEndTime(): Date {
+  public getEndTime(): Date | null {
     return this.endTime;
+  }
+
+  public isAcknowledged(): boolean {
+    return this.acknowledged;
+  }
+
+  public getIsRest(): boolean {
+    return this.isRest;
+  }
+
+  // Métodos de dominio para modificar el estado de forma segura
+  public acknowledge(): void {
+    this.acknowledged = true;
+  }
+
+  public updateDetails(
+    startTime: Date | null,
+    endTime: Date | null,
+    isRest: boolean,
+  ): void {
+    if (!isRest && startTime && endTime) {
+      this.validateDates(startTime, endTime);
+    }
+    this.startTime = startTime;
+    this.endTime = endTime;
+    this.isRest = isRest;
   }
 }

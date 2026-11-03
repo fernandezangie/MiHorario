@@ -173,7 +173,7 @@ function resolveDbSsl(dbHost: string): false | { rejectUnauthorized: boolean } {
           database: dbName,
           ssl,
           autoLoadEntities: true,
-          synchronize: false,
+          synchronize: process.env.DB_SYNC === 'true',
           manualInitialization: !isDbUp,
         };
       },

@@ -12,14 +12,14 @@ services:
       - ./mi-horario-backend/.env
     environment:
       - NODE_ENV=production
-      - DB_HOST=cockroach
+      - DB_HOST=mihorario-22313.jxf.gcp-us-east1.cockroachlabs.cloud
       - DB_PORT=26257
-      - DB_USER=angie
+      - DB_USER=angie.amaya0880
       - DB_NAME=defaultdb
       - DB_SSL=false
       - DB_PASSWORD_FILE=/run/secrets/db_password
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=macromodern-vigorous-trick-24402.db.redis.io
+      - REDIS_PORT=11729
       - REDIS_USER=default
       - REDIS_TLS=false
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password

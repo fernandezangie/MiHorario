@@ -41,6 +41,7 @@ interface MetricBarProps {
   onOpenManager: (tab: ManagerTab) => void;
   onSwitchRole: (role: UserRole) => void;
   onLogout: () => void;
+  showRoleSwitcher?: boolean;
 }
 
 export const MetricBar: React.FC<MetricBarProps> = ({
@@ -60,6 +61,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
   onOpenManager,
   onSwitchRole,
   onLogout,
+  showRoleSwitcher = true,
 }) => {
   const isAdmin = user.role === 'ADMIN';
 
@@ -85,7 +87,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
               <h1 className="brand-title">MiHorario</h1>
               <span className="brand-badge">Comfama</span>
               <span className={`perspective-header-badge ${isAdmin ? 'admin' : 'employee'}`}>
-                {isAdmin ? 'PERSPECTIVA SUPERVISOR' : 'PERSPECTIVA EMPLEADO'}
+                {isAdmin ? 'SUPERVISOR' : 'EMPLEADO'}
               </span>
             </div>
             <p className="brand-subtitle">
@@ -98,24 +100,26 @@ export const MetricBar: React.FC<MetricBarProps> = ({
 
         {/* Información de Usuario y Cambio Rápido de Perfil */}
         <div className="user-session-bar">
-          <div className="role-Quick-toggle" title="Alternar entre los 2 perfiles">
-            <button
-              type="button"
-              className={`role-pill-btn ${isAdmin ? 'active' : ''}`}
-              onClick={() => onSwitchRole('ADMIN')}
-            >
-              <Building2 size={14} />
-              <span>Perfil Supervisor</span>
-            </button>
-            <button
-              type="button"
-              className={`role-pill-btn ${!isAdmin ? 'active' : ''}`}
-              onClick={() => onSwitchRole('EMPLOYEE')}
-            >
-              <UserCheck size={14} />
-              <span>Perfil Empleado</span>
-            </button>
-          </div>
+          {showRoleSwitcher && (
+            <div className="role-Quick-toggle" title="Alternar entre los 2 perfiles">
+              <button
+                type="button"
+                className={`role-pill-btn ${isAdmin ? 'active' : ''}`}
+                onClick={() => onSwitchRole('ADMIN')}
+              >
+                <Building2 size={14} />
+                <span>Perfil Supervisor</span>
+              </button>
+              <button
+                type="button"
+                className={`role-pill-btn ${!isAdmin ? 'active' : ''}`}
+                onClick={() => onSwitchRole('EMPLOYEE')}
+              >
+                <UserCheck size={14} />
+                <span>Perfil Empleado</span>
+              </button>
+            </div>
+          )}
 
           <div className="user-profile-chip">
             <div className="user-avatar-small">
@@ -133,7 +137,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
 
           <button type="button" className="btn-logout" onClick={onLogout} title="Cerrar sesión">
             <LogOut size={16} />
-            <span>Cambiar Cuenta</span>
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </div>
@@ -262,7 +266,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
                 <div className="emp-stat-label">Próximo Turno Programado</div>
                 <div className="emp-stat-value">
                   {nextWorkingShift
-                    ? `Día ${nextWorkingShift.day} • ${nextWorkingShift.startTime} - ${nextWorkingShift.endTime}`
+                    ? `Día ${nextWorkingShift.day} (${nextWorkingShift.startTime} - ${nextWorkingShift.endTime})`
                     : 'Sin turnos pendientes'}
                 </div>
                 <div className="emp-stat-sub">

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Post,
   Req,
@@ -8,6 +9,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { LoginDto } from '../dtos/login.dto';
+import { RegisterDto } from '../dtos/register.dto';
+import { AuthService } from '../../application/auth.service';
 import { GoogleOidcLoginDto, RefreshTokenDto } from '../dtos/google-oidc.dto';
 import { JwtTokenService } from '@shared/infrastructure/security/jwt-token.service';
 import { Public } from '@shared/infrastructure/security/roles.decorator';
@@ -21,7 +24,10 @@ import { Public } from '@shared/infrastructure/security/roles.decorator';
  */
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly jwtTokenService: JwtTokenService) {}
+  constructor(
+    private readonly jwtTokenService: JwtTokenService,
+    private readonly authService: AuthService,
+  ) {}
 
   /**
    * Configura la cookie sellada HttpOnly + Secure + SameSite=Strict exigida por ADR-0005 Línea 45
@@ -84,6 +90,14 @@ export class AuthController {
     @Body() body: GoogleOidcLoginDto,
     @Res({ passthrough: true }) res: any,
   ) {
+    // SEGURIDAD: verifyGoogleIdToken solo decodifica el token, NO comprueba la firma
+    // de Google, así que cualquiera podría fabricar uno. Se mantiene apagado hasta
+    // verificar la firma (p. ej. con google-auth-library) y exigir usuario registrado.
+    if (process.env.ENABLE_GOOGLE_LOGIN !== 'true') {
+      throw new ForbiddenException(
+        'El inicio de sesión con Google está deshabilitado.',
+      );
+    }
     const googleClaims = this.jwtTokenService.verifyGoogleIdToken(body.idToken);
     const targetRole = body.role === 'EMPLOYEE' ? 'EMPLOYEE' : 'ADMIN';
 
@@ -131,7 +145,8 @@ export class AuthController {
       accessToken,
       tokenType: 'Bearer',
       expiresIn: 900,
-      refreshCookiePolicy: 'HttpOnly; Secure; SameSite=Strict; Max-Age=604800 (7d)',
+      refreshCookiePolicy:
+        'HttpOnly; Secure; SameSite=Strict; Max-Age=604800 (7d)',
       oidcClaims: {
         sub: userProfile.sub,
         email: userProfile.email,
@@ -152,42 +167,36 @@ export class AuthController {
     };
   }
 
+  /**
+   * Registro de cuentas nuevas (Supervisor o Colaborador).
+   */
+  @Public()
+  @Post('register')
+  async register(@Body() dto: RegisterDto) {
+    const user = await this.authService.register(dto);
+    return {
+      message: 'Registro exitoso. Ya puedes iniciar sesión.',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
+  }
+
+  /**
+   * Login contra la base de datos: solo entra quien esté registrado y escriba
+   * su contraseña correcta. El perfil (ADMIN/EMPLOYEE) lo define la base, no el cliente.
+   */
   @Public()
   @Post('login')
-  login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: any) {
-    const emailLower = dto.email.toLowerCase().trim();
-    const isEmployee =
-      dto.role === 'EMPLOYEE' ||
-      emailLower.includes('carlos') ||
-      emailLower.includes('empleado');
-
-    const userProfile = isEmployee
-      ? {
-          sub: 'EMP-1001',
-          email: emailLower,
-          roles: ['EMPLOYEE' as const],
-          role: 'EMPLOYEE' as const,
-          employeeId: 'EMP-1001',
-          areaId: 'AREA-PARQUE-01',
-          code: 'COM-2000',
-          name: 'Carlos Rodríguez',
-          title: 'Operador de Atracciones',
-          department: 'Operaciones Parque',
-          authProvider: 'LOCAL_JWT' as const,
-        }
-      : {
-          sub: 'ADM-001',
-          email: emailLower,
-          roles: ['ADMIN' as const],
-          role: 'ADMIN' as const,
-          employeeId: 'ADM-001',
-          areaId: 'AREA-DIRECCION-01',
-          code: 'SUP-0100',
-          name: 'Daniela Gómez',
-          title: 'Supervisora de Operaciones',
-          department: 'Dirección Parque Rionegro',
-          authProvider: 'LOCAL_JWT' as const,
-        };
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: any) {
+    const user = await this.authService.validateCredentials(
+      dto.email,
+      dto.password,
+    );
+    const userProfile = this.authService.buildSessionProfile(user);
 
     // Paso 1: Access Token de 15 minutos (900s)
     const accessToken = this.jwtTokenService.sign(userProfile, 900);
@@ -204,7 +213,8 @@ export class AuthController {
       idToken: accessToken,
       tokenType: 'Bearer',
       expiresIn: 900,
-      refreshCookiePolicy: 'HttpOnly; Secure; SameSite=Strict; Max-Age=604800 (7d)',
+      refreshCookiePolicy:
+        'HttpOnly; Secure; SameSite=Strict; Max-Age=604800 (7d)',
       claims: {
         sub: userProfile.sub,
         email: userProfile.email,
@@ -250,11 +260,13 @@ export class AuthController {
     this.attachSecureRefreshCookie(res, rotated.refreshToken);
 
     return {
-      message: 'Sesión renovada mediante Refresh Token Rotation (RTR - ADR-0005)',
+      message:
+        'Sesión renovada mediante Refresh Token Rotation (RTR - ADR-0005)',
       accessToken: rotated.accessToken,
       tokenType: 'Bearer',
       expiresIn: 900,
-      refreshCookiePolicy: 'HttpOnly; Secure; SameSite=Strict; Max-Age=604800 (7d)',
+      refreshCookiePolicy:
+        'HttpOnly; Secure; SameSite=Strict; Max-Age=604800 (7d)',
     };
   }
 

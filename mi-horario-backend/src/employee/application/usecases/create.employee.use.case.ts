@@ -30,7 +30,7 @@ export class CreateEmployeeUseCase {
     }
 
     const employee = new EmployeeEntity(
-      Date.now().toString(),
+      dto.code,
       new EmployeeCode(dto.code),
       new EmployeeName(dto.name),
       new EmployeeEmail(dto.email),
