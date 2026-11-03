@@ -12,7 +12,7 @@ interface RateRecord {
 }
 
 /**
- * Building Block: API Gateway Rate Limiter / Throttler (ADR-0001 / ADR-0009)
+ * API Gateway Rate Limiter / Throttler
  * Protege los endpoints frente a ataques de fuerza bruta y picos de tráfico por IP.
  */
 @Injectable()
@@ -55,7 +55,7 @@ export class RateLimitGuard implements CanActivate {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
           error: 'Too Many Requests',
           message:
-            'Has superado el límite de peticiones permitidas por minuto (Protección API Gateway ADR-0001).',
+            'Has superado el límite de peticiones permitidas por minuto.',
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );

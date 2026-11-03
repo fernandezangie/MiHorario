@@ -2,11 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, randomUUID } from 'crypto';
 
-/**
- * Claims exactos exigidos por ADR-0005 (Líneas 44-45):
- * - Access Token (15 min = 900s): sub, email, roles, employeeId, areaId
- * - Refresh Token (7 días = 604800s): incluye jti único para Refresh Token Rotation (RTR)
- */
+
 export interface JwtPayload {
   iss?: string;
   aud?: string;
@@ -41,17 +37,11 @@ export interface GoogleOidcClaims {
   exp: number;
 }
 
-/**
- * Building Block: Paso 1 y Paso 2 de ADR-0005
- * - Paso 1: Access Token Stateless de 15 minutos (900s) validado en memoria (<1ms).
- * - Paso 2: Refresh Token de 7 días (604800s) con Rotación Obligatoria (RTR) y revocación.
- */
 @Injectable()
 export class JwtTokenService {
-  // Registro en memoria de Refresh Tokens consumidos/revocados para cumplir RTR (ADR-0005 Línea 45 y 67)
   private readonly consumedRefreshJtis = new Set<string>();
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   private getSecret(): string {
     return (
@@ -85,7 +75,7 @@ export class JwtTokenService {
   }
 
   /**
-   * Paso 1 (ADR-0005): Firma el Access Token con vigencia corta de 15 minutos (900 segundos).
+   * Firma el Access Token con vigencia corta de 15 minutos (900 segundos).
    */
   sign(
     payload: Omit<JwtPayload, 'iat' | 'exp' | 'iss' | 'aud'>,
@@ -118,7 +108,7 @@ export class JwtTokenService {
   }
 
   /**
-   * Paso 2 (ADR-0005 Línea 45): Emite un Refresh Token de 7 días (604800 segundos)
+   * Emite un Refresh Token de 7 días (604800 segundos)
    * con un identificador único (jti) para controlar la Rotación de Refresh Tokens (RTR).
    */
   signRefreshToken(

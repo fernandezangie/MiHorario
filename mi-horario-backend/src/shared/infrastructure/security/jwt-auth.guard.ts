@@ -8,17 +8,13 @@ import { Reflector } from '@nestjs/core';
 import { JwtTokenService } from './jwt-token.service';
 import { IS_PUBLIC_KEY } from './roles.decorator';
 
-/**
- * Building Block: JWT Authentication Guard (ADR-0001 / ADR-0006)
- * Extrae y valida el token Bearer en las cabeceras HTTP e inyecta la identidad
- * del usuario en request.user para trazabilidad y control de acceso.
- */
+
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtTokenService: JwtTokenService,
     private readonly reflector: Reflector,
-  ) {}
+  ) { }
 
   canActivate(context: ExecutionContext): boolean {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [

@@ -6,7 +6,7 @@ export const ROLES_KEY = 'roles';
 export const IS_PUBLIC_KEY = 'isPublic';
 
 /**
- * Decorador RBAC (Role-Based Access Control - ADR-0006)
+ * Decorador RBAC (Role-Based Access Control)
  * Define qué roles están autorizados para invocar un endpoint específico.
  */
 export const Roles = (...roles: AppRole[]) => SetMetadata(ROLES_KEY, roles);

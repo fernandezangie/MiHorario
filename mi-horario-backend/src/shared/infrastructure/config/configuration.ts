@@ -25,7 +25,8 @@ export default () => ({
   },
   security: {
     jwtSecret:
-      process.env.JWT_SECRET || 'comfama-mihorario-jwt-secret-key-2026-adr0006',
+      getSecret('JWT_SECRET', 'JWT_SECRET_FILE') ||
+      'comfama-mihorario-jwt-secret-key-2026-adr0006',
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
     googleClientId:
       process.env.GOOGLE_CLIENT_ID ||
