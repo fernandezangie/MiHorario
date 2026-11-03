@@ -12,9 +12,19 @@ export interface CreateEmployeePayload {
 
 export interface CreateShiftPayload {
   employeeId: string;
-  jobId?: string;
+  jobId?: string;       // 👈 Soportado para el trabajo a realizar
   startTime: string;
   endTime: string;
+  zone?: string;        // Zona seleccionada
+  isRest?: boolean;     // Descanso
+}
+
+export interface UpdateShiftPayload {
+  startTime?: string;
+  endTime?: string;
+  zone?: string;
+  jobId?: string;       // 👈 Soportado para actualizar el trabajo
+  isRest?: boolean;
 }
 
 export interface CreateJobPayload {
@@ -32,9 +42,9 @@ export interface RegisterPayload {
   role: 'ADMIN' | 'EMPLOYEE';
   email: string;
   password: string;
-  name?: string; // solo supervisores
-  code?: string; // solo colaboradores
-  registrationKey?: string; // solo supervisores
+  name?: string;
+  code?: string;
+  registrationKey?: string;
 }
 
 function getAuthHeaders(includeJson = false): Record<string, string> {
@@ -48,10 +58,6 @@ function getAuthHeaders(includeJson = false): Record<string, string> {
   return headers;
 }
 
-/**
- * Renueva el token de acceso una sola vez aunque varias peticiones lo pidan a la vez.
- * (El backend rota el refresh token: usar el mismo dos veces lo invalida.)
- */
 function renewToken(): Promise<boolean> {
   if (!refreshInFlight) {
     refreshInFlight = api
@@ -67,11 +73,6 @@ function renewToken(): Promise<boolean> {
   );
 }
 
-/**
- * fetch con sesión: agrega el token y, si el servidor responde 401 porque el token
- * venció (dura 15 min), lo renueva y repite la petición. Si no se puede renovar,
- * avisa a la app para que regrese al login.
- */
 async function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const send = () =>
     fetch(url, {
@@ -103,7 +104,6 @@ export const api = {
     activeJwtToken = token;
   },
 
-  /** La app registra aquí qué hacer cuando la sesión ya no se puede renovar. */
   onSessionExpired(handler: (() => void) | null) {
     sessionExpiredHandler = handler;
   },
@@ -206,7 +206,7 @@ export const api = {
         body: JSON.stringify({}),
       });
     } catch {
-      // Aunque el servidor no responda, la sesión local se cierra igual
+      // Ignorar error al cerrar sesión
     } finally {
       activeJwtToken = null;
     }
@@ -246,6 +246,20 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || 'Error creando turno');
+    }
+    return res.json();
+  },
+
+  // 👈 Método añadido para actualizar turnos (PATCH /shift/:id)
+  async updateShift(shiftId: string, payload: UpdateShiftPayload): Promise<any> {
+    const res = await authFetch(`${API_BASE_URL}/shift/${shiftId}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(true),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Error actualizando turno');
     }
     return res.json();
   },

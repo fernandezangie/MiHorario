@@ -83,6 +83,25 @@ export function shiftFromBackend(row: any): Shift | null {
   const { hours, type } = classifyShift(s.time, e.time);
   const dd = String(s.day).padStart(2, '0');
 
+  // Evaluamos de forma robusta si la zona viene como objeto con nombre, texto directo, o ID
+  const zoneField = row?.zone || row?.location || row?.zoneName || row?.zoneId;
+  let resolvedLocation = 'Zona Transporte';
+
+  if (typeof zoneField === 'object' && zoneField !== null) {
+    resolvedLocation = zoneField.name || zoneField.title || 'Zona Transporte';
+  } else if (typeof zoneField === 'string' && zoneField.trim() !== '') {
+    resolvedLocation = zoneField;
+  }
+
+  // 👈 Extracción robusta del jobId (soporta objeto relation, string directo, job_id, etc.)
+  const jobField = row?.jobId || row?.job_id || row?.job;
+  let resolvedJobId = '';
+  if (typeof jobField === 'object' && jobField !== null) {
+    resolvedJobId = jobField.id || '';
+  } else if (typeof jobField === 'string') {
+    resolvedJobId = jobField;
+  }
+
   return {
     id: String(unwrap(row?.id) ?? `SHIFT-${employeeId}-D${s.day}`),
     employeeId: String(employeeId),
@@ -93,7 +112,8 @@ export function shiftFromBackend(row: any): Shift | null {
     type,
     hours,
     label: `Turno (${hours}h)`,
-    location: row?.location || 'Sede Parque Rionegro',
-    acknowledged: row?.acknowledged ?? row?.isAcknowledged ?? false, // Mapeo correcto del estado de confirmación
+    location: resolvedLocation,
+    jobId: resolvedJobId, // 👈 Ahora el frontend recibirá y recordará el ID del trabajo
+    acknowledged: row?.acknowledged ?? row?.isAcknowledged ?? false,
   };
 }
