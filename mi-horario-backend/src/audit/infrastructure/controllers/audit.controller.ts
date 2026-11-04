@@ -7,8 +7,8 @@ import { MessageCatalogService } from '@shared/infrastructure/messaging/message.
 export class AuditController {
   constructor(
     private readonly auditService: AuditService,
-    private readonly messageCatalogService: MessageCatalogService, // 👈 Inyectamos el catálogo
-  ) {}
+    private readonly messageCatalogService: MessageCatalogService,
+  ) { }
 
   @Roles('ADMIN')
   @Get()
