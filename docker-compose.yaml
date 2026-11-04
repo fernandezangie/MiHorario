@@ -1,6 +1,29 @@
+version: '3.8'
+
 name: mi_horario_app
 
 services:
+  # 1. Base de datos CockroachDB (Local)
+  cockroach:
+    image: cockroachdb/cockroach:latest-v23.1
+    container_name: mihorario_cockroach
+    restart: always
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+    volumes:
+      - cockroach_data:/cockroach/cockroach-data
+    command: start-single-node --insecure
+
+  # 2. Caché con Redis (Local)
+  redis:
+    image: redis:alpine
+    container_name: mihorario_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  # 3. Aplicación (Backend / API)
   app:
     build:
       context: ./mi-horario-backend
@@ -32,8 +55,13 @@ services:
       - redis_password
       - jwt_secret
       - mail_password
+      - mi_horario_app_jwt_secret
+    depends_on:
+      - cockroach
+      - redis
     restart: unless-stopped
 
+  # 4. Frontend
   frontend:
     build:
       context: ./mi-horario-frontend
@@ -45,6 +73,11 @@ services:
       - app
     restart: unless-stopped
 
+# Declaración de volúmenes para persistencia
+volumes:
+  cockroach_data:
+
+# Declaración de secretos
 secrets:
   db_password:
     file: ./mi-horario-backend/secrets/db_password.txt
@@ -54,3 +87,5 @@ secrets:
     file: ./mi-horario-backend/secrets/jwt_secret.txt
   mail_password:
     file: ./mi-horario-backend/secrets/mail_password.txt
+  mi_horario_app_jwt_secret:
+    file: ./jwt_secret.txt
