@@ -226,8 +226,8 @@ export default function App() {
     const hours = updated.isRest
       ? 0
       : endH >= startH
-      ? endH - startH
-      : 24 - startH + endH;
+        ? endH - startH
+        : 24 - startH + endH;
 
     let type: ShiftType = 'ORDINARY';
     if (updated.isRest) type = 'REST';
@@ -332,7 +332,7 @@ export default function App() {
         await Promise.all(
           Object.values(ownEmployeeRecord.shifts).map((s) => {
             if (s.id && !s.acknowledged) {
-              return api.acknowledgeShift(s.id).catch(() => {});
+              return api.acknowledgeShift(s.id).catch(() => { });
             }
             return Promise.resolve();
           })
@@ -398,7 +398,7 @@ export default function App() {
               const tokenData = localStorage.getItem('token') || localStorage.getItem('access_token');
               const cleanToken = tokenData?.startsWith('"') ? JSON.parse(tokenData) : tokenData;
 
-              const response = await fetch(`http://localhost:3000/shift/${targetShift.id}`, {
+              const response = await fetch(`${api.baseUrl}/shift/${targetShift.id}`, {
                 method: 'PATCH',
                 headers: {
                   'Content-Type': 'application/json',
