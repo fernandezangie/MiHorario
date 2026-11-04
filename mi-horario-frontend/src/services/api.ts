@@ -97,6 +97,17 @@ async function authFetch(url: string, init: RequestInit = {}): Promise<Response>
   return res;
 }
 
+async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
+  const err = await res.json().catch(() => ({}));
+  if (Array.isArray(err?.message)) {
+    return err.message.join(', ');
+  }
+  if (typeof err?.message === 'string' && err.message.trim().length > 0) {
+    return err.message;
+  }
+  return fallback;
+}
+
 export const api = {
   baseUrl: API_BASE_URL,
 
@@ -214,7 +225,7 @@ export const api = {
 
   async getEmployees(): Promise<any[]> {
     const res = await authFetch(`${API_BASE_URL}/employees`);
-    if (!res.ok) throw new Error('Error consultando empleados');
+    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Error consultando empleados'));
     return res.json();
   },
 
@@ -225,15 +236,14 @@ export const api = {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Error creando empleado');
+      throw new Error(await extractErrorMessage(res, 'Error creando empleado'));
     }
     return res.json();
   },
 
   async getShifts(): Promise<any[]> {
     const res = await authFetch(`${API_BASE_URL}/shift`);
-    if (!res.ok) throw new Error('Error consultando turnos');
+    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Error consultando turnos'));
     return res.json();
   },
 
@@ -244,8 +254,7 @@ export const api = {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Error creando turno');
+      throw new Error(await extractErrorMessage(res, 'Error creando turno'));
     }
     return res.json();
   },
@@ -258,8 +267,7 @@ export const api = {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Error actualizando turno');
+      throw new Error(await extractErrorMessage(res, 'Error actualizando turno'));
     }
     return res.json();
   },
@@ -270,15 +278,14 @@ export const api = {
       headers: getAuthHeaders(true),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Error confirmando el turno');
+      throw new Error(await extractErrorMessage(res, 'Error confirmando el turno'));
     }
     return res.json();
   },
 
   async getJobs(): Promise<any[]> {
     const res = await authFetch(`${API_BASE_URL}/job`);
-    if (!res.ok) throw new Error('Error consultando puestos');
+    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Error consultando puestos'));
     return res.json();
   },
 
@@ -289,15 +296,14 @@ export const api = {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Error creando puesto');
+      throw new Error(await extractErrorMessage(res, 'Error creando puesto'));
     }
     return res.json();
   },
 
   async getZones(): Promise<any[]> {
     const res = await authFetch(`${API_BASE_URL}/zone`);
-    if (!res.ok) throw new Error('Error consultando zonas');
+    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Error consultando zonas'));
     return res.json();
   },
 
@@ -308,21 +314,20 @@ export const api = {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Error creando zona');
+      throw new Error(await extractErrorMessage(res, 'Error creando zona'));
     }
     return res.json();
   },
 
   async getAuditLogs(): Promise<any> {
     const res = await authFetch(`${API_BASE_URL}/audit-logs`);
-    if (!res.ok) throw new Error('Error consultando bitácora de auditoría');
+    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Error consultando bitácora de auditoría'));
     return res.json();
   },
 
   async testMessageCatalog(code: string): Promise<{ resolvedMessage: string }> {
-    const res = await authFetch(`${API_BASE_URL}/messaging/test/${code}`);
-    if (!res.ok) throw new Error('Error consultando catálogo en Redis');
+    const res = await authFetch(`${API_BASE_URL}/messages/${code}`);
+    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Error consultando catálogo en Redis'));
     return res.json();
   },
 };

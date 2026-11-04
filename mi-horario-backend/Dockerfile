@@ -22,6 +22,8 @@ COPY package*.json ./
 RUN npm install --omit=dev --legacy-peer-deps
 
 COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/tsconfig.json ./tsconfig.json
+RUN ln -s /usr/src/app/dist /usr/src/app/src
 
 # Cambiado a 3000 para alinearlo con docker-compose.yml
 ENV PORT=3000

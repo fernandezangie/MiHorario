@@ -44,7 +44,7 @@ export class JwtTokenService {
   constructor(
     private readonly configService: ConfigService,
     private readonly messageCatalogService: MessageCatalogService, // 👈 Inyectamos el servicio de Redis
-  ) {}
+  ) { }
 
   private getSecret(): string {
     return (
@@ -181,14 +181,12 @@ export class JwtTokenService {
       if (decoded.jti) {
         this.consumedRefreshJtis.add(decoded.jti);
       }
-    } catch {}
+    } catch { }
   }
 
   verify(token: string): JwtPayload {
     const parts = token.split('.');
     if (parts.length !== 3) {
-      // Como verify puede ser llamado de forma síncrona o asíncrona, en NestJS podemos lanzar la excepción
-      // y dejar que el filtro global o el bloque maneje el mensaje (o usar valores por defecto si se requiere).
       throw new UnauthorizedException('JWT_FORMAT_INVALID');
     }
 

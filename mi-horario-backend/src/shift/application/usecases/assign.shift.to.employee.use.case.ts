@@ -122,10 +122,17 @@ export class AssignShiftToEmployeeUseCase {
       throw new BadRequestException(msg);
     }
 
-    const userRecords = await this.dataSource.query(
+    let userRecords = await this.dataSource.query(
       `SELECT id, "employeeId", email, name, code FROM public.users WHERE id = $1 OR code = $1 OR email = $1 OR name = $1`,
       [dto.employeeId],
     );
+
+    if (!userRecords || userRecords.length === 0) {
+      userRecords = await this.dataSource.query(
+        `SELECT id, id AS "employeeId", email, name, id AS code FROM public.employees WHERE id = $1 OR email = $1 OR name = $1`,
+        [dto.employeeId],
+      );
+    }
 
     if (!userRecords || userRecords.length === 0) {
       const errorMsg = await this.messageCatalogService.getMessage(

@@ -20,7 +20,7 @@ export class RateLimitGuard implements CanActivate {
   private readonly maxRequests =
     parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '120', 10) || 120;
 
-  constructor(private readonly messageCatalogService: MessageCatalogService) {}
+  constructor(private readonly messageCatalogService: MessageCatalogService) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // 👈 Ahora es async por el await de Redis

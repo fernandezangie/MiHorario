@@ -20,7 +20,8 @@ export default () => ({
   },
   security: {
     jwtSecret:
-      process.env.JWT_SECRET || 'comfama-mihorario-jwt-secret-key-2026-adr0006',
+      getSecret('JWT_SECRET', 'JWT_SECRET_FILE') ||
+      'comfama-mihorario-jwt-secret-key-2026-adr0006',
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
     googleClientId:
       process.env.GOOGLE_CLIENT_ID ||
@@ -29,5 +30,11 @@ export default () => ({
     rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 60000,
     rateLimitMaxRequests:
       parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 120,
+  },
+  mail: {
+    host: process.env.MAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.MAIL_PORT, 10) || 465,
+    user: process.env.MAIL_USER || '',
+    password: getSecret('MAIL_PASS', 'MAIL_PASS_FILE'),
   },
 });

@@ -102,7 +102,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   const [zoneDesc, setZoneDesc] = useState('');
 
   // Message Catalog Test
-  const [catalogCode, setCatalogCode] = useState('SHIFT_ASSIGNED');
+  const [catalogCode, setCatalogCode] = useState('EMPLOYEE_REGISTER_SUCCESS');
   const [catalogResult, setCatalogResult] = useState<string | null>(null);
 
   useEffect(() => {
@@ -118,8 +118,10 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     setLoading(true);
     setStatusMsg(null);
     try {
+      let backendMessage: string | undefined;
       if (backendOnline) {
-        await api.createEmployee({ code: empCode, name: empName, email: empEmail });
+        const res = await api.createEmployee({ code: empCode, name: empName, email: empEmail });
+        backendMessage = res?.message;
       }
       onEmployeeCreated({
         code: empCode,
@@ -130,7 +132,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
       });
       setStatusMsg({
         type: 'ok',
-        text: `El colaborador "${empName}" fue agregado exitosamente a la programación.`,
+        text: backendMessage || `El colaborador "${empName}" fue agregado exitosamente a la programación.`,
       });
       setEmpName('');
       setEmpEmail('');
@@ -146,6 +148,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     setLoading(true);
     setStatusMsg(null);
     try {
+      let backendMessage: string | undefined;
       if (backendOnline) {
         const now = new Date();
         const currentYear = now.getFullYear();
@@ -156,13 +159,14 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
         const startTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftStart}:00-05:00`;
         const endTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftEnd}:00-05:00`;
 
-        await api.createShift({
+        const res = await api.createShift({
           employeeId: shiftEmpId,
           startTime,
           endTime,
           zone: shiftZone,
           jobId: shiftJobId || undefined,
         });
+        backendMessage = res?.message;
       }
       onShiftCreated({
         employeeId: shiftEmpId,
@@ -179,7 +183,9 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
 
       setStatusMsg({
         type: 'ok',
-        text: `Turno asignado a ${empObj?.name || shiftEmpId} para el ${shiftDay} de ${nombreMes} (${shiftStart} a ${shiftEnd}) en ${shiftZone}${jobObj ? ` [Trabajo: ${jobObj.title}]` : ''}.`,
+        text:
+          backendMessage ||
+          `Turno asignado a ${empObj?.name || shiftEmpId} para el ${shiftDay} de ${nombreMes} (${shiftStart} a ${shiftEnd}) en ${shiftZone}${jobObj ? ` [Trabajo: ${jobObj.title}]` : ''}.`,
       });
     } catch (err: any) {
       setStatusMsg({ type: 'err', text: err.message || 'Error al asignar turno' });
@@ -193,12 +199,14 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     setLoading(true);
     setStatusMsg(null);
     try {
+      let backendMessage: string | undefined;
       if (backendOnline) {
-        await api.createZone({ name: zoneName, description: zoneDesc, location: zoneLocation });
+        const res = await api.createZone({ name: zoneName, description: zoneDesc, location: zoneLocation });
+        backendMessage = res?.message;
       }
       setStatusMsg({
         type: 'ok',
-        text: `Sede / Zona "${zoneName}" guardada correctamente.`,
+        text: backendMessage || `Sede / Zona "${zoneName}" guardada correctamente.`,
       });
       setZoneName('');
       setZoneDesc('');
@@ -491,9 +499,15 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
                   value={catalogCode}
                   onChange={(e) => setCatalogCode(e.target.value)}
                 >
-                  <option value="SHIFT_ASSIGNED">Nuevo turno asignado (SHIFT_ASSIGNED)</option>
-                  <option value="EMPLOYEE_CREATED">Bienvenida de colaborador (EMPLOYEE_CREATED)</option>
-                  <option value="RESTRICTION_VIOLATION">Alerta de novedad laboral (RESTRICTION_VIOLATION)</option>
+                  <option value="EMPLOYEE_REGISTER_SUCCESS">Registro de colaborador (EMPLOYEE_REGISTER_SUCCESS)</option>
+                  <option value="SHIFT_ASSIGN_SUCCESS">Asignación de turno (SHIFT_ASSIGN_SUCCESS)</option>
+                  <option value="SHIFT_ACKNOWLEDGE_SUCCESS">Confirmación de turno (SHIFT_ACKNOWLEDGE_SUCCESS)</option>
+                  <option value="SHIFT_UPDATE_SUCCESS">Actualización de turno (SHIFT_UPDATE_SUCCESS)</option>
+                  <option value="JOB_CREATED_SUCCESS">Creación de puesto (JOB_CREATED_SUCCESS)</option>
+                  <option value="ZONE_CREATED_SUCCESS">Creación de zona (ZONE_CREATED_SUCCESS)</option>
+                  <option value="RESTRICTION_CREATED_SUCCESS">Creación de restricción (RESTRICTION_CREATED_SUCCESS)</option>
+                  <option value="SHIFT_OVERLAP_ERROR">Error de cruce de turno (SHIFT_OVERLAP_ERROR)</option>
+                  <option value="EMPLOYEE_EMAIL_INVALID">Error de correo inválido (EMPLOYEE_EMAIL_INVALID)</option>
                 </select>
               </div>
               <button type="button" className="modal-btn-primary" onClick={handleTestCatalog} disabled={loading}>

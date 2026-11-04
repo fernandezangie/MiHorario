@@ -15,7 +15,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly jwtTokenService: JwtTokenService,
     private readonly reflector: Reflector,
     private readonly messageCatalogService: MessageCatalogService, // 👈 Lo inyectamos aquí
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // 👈 Ahora es async

@@ -29,8 +29,12 @@ interface ShiftDetailModalProps {
     location: string;
     jobId: string;
     isRest: boolean;
-  }) => void;
-  onEmployeeAcknowledgeShift: (employeeId: string, day: number, shiftId?: string) => void;
+  }) => Promise<string | undefined> | void;
+  onEmployeeAcknowledgeShift: (
+    employeeId: string,
+    day: number,
+    shiftId?: string
+  ) => Promise<string | undefined> | void;
   onEmployeeRequestChange: (payload: {
     employeeId: string;
     employeeName: string;
@@ -150,9 +154,9 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
     (shift as any).jobTitle ||
     'Sin trabajo asignado';
 
-  const handleSaveSupervisorChanges = (e: React.FormEvent) => {
+  const handleSaveSupervisorChanges = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSupervisorUpdateShift({
+    const backendMsg = await onSupervisorUpdateShift({
       employeeId: employee.id,
       day: shift.day,
       startTime: editStart,
@@ -164,12 +168,20 @@ export const ShiftDetailModal: React.FC<ShiftDetailModalProps> = ({
     // Actualizamos localmente el turno para reflejar el cambio de inmediato
     shift.location = editLocation;
     shift.jobId = editJobId;
-    setFeedbackBanner('Horario y trabajo actualizados correctamente en la malla.');
+    setFeedbackBanner(
+      backendMsg || 'Horario y trabajo actualizados correctamente en la malla.'
+    );
   };
 
-  const handleConfirmAttendance = () => {
-    onEmployeeAcknowledgeShift(employee.id, shift.day, shift.id);
-    setFeedbackBanner('Has confirmado tu asistencia para este turno.');
+  const handleConfirmAttendance = async () => {
+    const backendMsg = await onEmployeeAcknowledgeShift(
+      employee.id,
+      shift.day,
+      shift.id
+    );
+    setFeedbackBanner(
+      backendMsg || 'Has confirmado tu asistencia para este turno.'
+    );
   };
 
   const handleSendChangeRequest = (e: React.FormEvent) => {
