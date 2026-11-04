@@ -1,32 +1,17 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
 @Injectable()
-export class MessageCatalogService implements OnModuleInit {
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+export class MessageCatalogService {
+  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) { }
 
-  async onModuleInit() {
-    await this.seedMessagesToRedis();
-  }
-
-  private async seedMessagesToRedis() {
-    try {
-      const store: any = this.cacheManager.store;
-      const client =
-        store.client ||
-        (typeof store.getClient === 'function' ? store.getClient() : null);
-
-      if (!client) {
-        return;
-      }
-
-      const lang = 'es';
-      const hashKey = `messages:${lang}`;
-
-    } catch (error) {
-      console.error('Error al inicializar el catálogo en Redis:', error);
-    }
+  private getRedisClient(): any {
+    const store: any = this.cacheManager.store;
+    return (
+      store.client ||
+      (typeof store.getClient === 'function' ? store.getClient() : null)
+    );
   }
 
   async getMessage(
@@ -40,12 +25,7 @@ export class MessageCatalogService implements OnModuleInit {
 
   async getMessageTemplate(code: string, lang: string = 'es'): Promise<string> {
     try {
-      const store: any = this.cacheManager.store;
-
-      const client =
-        store.client ||
-        (typeof store.getClient === 'function' ? store.getClient() : null);
-
+      const client = this.getRedisClient();
       const hashKey = `messages:${lang}`;
       let message: string | null = null;
 
@@ -61,6 +41,26 @@ export class MessageCatalogService implements OnModuleInit {
     } catch (error) {
       console.error('MESSAGE_ERROR:', error);
       return code;
+    }
+  }
+
+  async getAllMessages(lang: string = 'es'): Promise<Record<string, string>> {
+    try {
+      const client = this.getRedisClient();
+      if (!client) return {};
+
+      const hashKey = `messages:${lang}`;
+      const data =
+        typeof client.hGetAll === 'function'
+          ? await client.hGetAll(hashKey)
+          : typeof client.hgetall === 'function'
+            ? await client.hgetall(hashKey)
+            : null;
+
+      return data || {};
+    } catch (error) {
+      console.error('MESSAGE_ERROR:', error);
+      return {};
     }
   }
 

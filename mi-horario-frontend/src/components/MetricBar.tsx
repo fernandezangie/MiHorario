@@ -3,18 +3,13 @@ import {
   Calendar,
   UserPlus,
   CalendarPlus,
-  MapPin,
-  Bell,
   Search,
   LogOut,
   Building2,
   UserCheck,
   Clock,
-  Coffee,
   CheckCircle2,
   Inbox,
-  Users,
-  User,
 } from 'lucide-react';
 import {
   AuthUser,
@@ -53,8 +48,6 @@ export const MetricBar: React.FC<MetricBarProps> = ({
   onDepartmentChange,
   employeeCount,
   ownEmployee,
-  employeeViewScope,
-  onEmployeeViewScopeChange,
   onConfirmAllOwnShifts,
   requests,
   onResolveRequest,
@@ -68,7 +61,6 @@ export const MetricBar: React.FC<MetricBarProps> = ({
   // Cálculos del resumen personal cuando entra como Empleado
   const ownShiftsList = ownEmployee ? Object.values(ownEmployee.shifts) : [];
   const totalMonthlyHours = ownShiftsList.reduce((acc, s) => acc + (s.hours || 0), 0);
-  const totalRestDays = ownShiftsList.filter((s) => s.type === 'REST').length;
   const confirmedCount = ownShiftsList.filter((s) => s.acknowledged).length;
   const nextWorkingShift = ownShiftsList.find((s) => s.type !== 'REST');
 
@@ -93,7 +85,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
             <p className="brand-subtitle">
               {isAdmin
                 ? 'Panel de Supervisión: Programación global de personal, sedes y novedades'
-                : `Portal del Colaborador: Consulta de turnos personales, descansos y solicitudes`}
+                : `Portal del Empleado: Consulta de turnos personales, descansos y solicitudes`}
             </p>
           </div>
         </div>
@@ -130,7 +122,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
                 {user.name} <small>({user.code})</small>
               </span>
               <span className="user-profile-role">
-                {user.title} • {user.department}
+                Empleado • {user.department}
               </span>
             </div>
           </div>
@@ -155,7 +147,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
                   id="search-employee-input"
                   type="text"
                   className="search-input"
-                  placeholder="Buscar colaborador por nombre, código o cargo..."
+                  placeholder="Buscar empleado por nombre, código o cargo..."
                   value={filterText}
                   onChange={(e) => onFilterChange(e.target.value)}
                 />
@@ -166,7 +158,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
                 value={selectedDepartment}
                 onChange={(e) => onDepartmentChange(e.target.value)}
               >
-                <option value="ALL">Todas las áreas ({employeeCount} colaboradores)</option>
+                <option value="ALL">Todas las áreas ({employeeCount} empleados)</option>
                 {departments.map((dept) => (
                   <option key={dept} value={dept}>
                     Área: {dept}
@@ -191,25 +183,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
                 onClick={() => onOpenManager('employee')}
               >
                 <UserPlus size={17} />
-                <span>+ Nuevo Colaborador</span>
-              </button>
-
-              <button
-                type="button"
-                className="btn-action-outline"
-                onClick={() => onOpenManager('zone')}
-              >
-                <MapPin size={16} />
-                <span>Sedes y Zonas</span>
-              </button>
-
-              <button
-                type="button"
-                className="btn-action-outline"
-                onClick={() => onOpenManager('catalog')}
-              >
-                <Bell size={16} />
-                <span>Avisos</span>
+                <span>+ Nuevo Empleado</span>
               </button>
             </div>
           </div>
@@ -288,17 +262,6 @@ export const MetricBar: React.FC<MetricBarProps> = ({
 
             <div className="emp-stat-card">
               <div className="emp-stat-icon">
-                <Coffee size={18} color="#ED217A" />
-              </div>
-              <div>
-                <div className="emp-stat-label">Días de Descanso (LIBRE)</div>
-                <div className="emp-stat-value">{totalRestDays} días libres</div>
-                <div className="emp-stat-sub">Compensatorios y dominicales</div>
-              </div>
-            </div>
-
-            <div className="emp-stat-card">
-              <div className="emp-stat-icon">
                 <CheckCircle2 size={18} color="#ED217A" />
               </div>
               <div>
@@ -313,29 +276,10 @@ export const MetricBar: React.FC<MetricBarProps> = ({
             </div>
           </div>
 
-          <div className="employee-toolbar-row">
-            <div className="employee-scope-selector">
-              <button
-                type="button"
-                className={`scope-btn ${employeeViewScope === 'OWN' ? 'active' : ''}`}
-                onClick={() => onEmployeeViewScopeChange('OWN')}
-              >
-                <User size={15} />
-                <span>Ver solo mi horario ({user.name})</span>
-              </button>
-              <button
-                type="button"
-                className={`scope-btn ${employeeViewScope === 'TEAM' ? 'active' : ''}`}
-                onClick={() => onEmployeeViewScopeChange('TEAM')}
-              >
-                <Users size={15} />
-                <span>Ver compañeros de mi área ({user.department})</span>
-              </button>
-            </div>
-
+          <div className="employee-toolbar-row" style={{ justifyContent: 'flex-end' }}>
             <div className="employee-quick-actions">
               <span className="employee-click-tip">
-                💡 Haz clic en cualquier día de tu fila para <strong>confirmar asistencia</strong> o <strong>pedir un cambio de turno</strong>.
+                Haz clic en cualquier día de tu fila para confirmar asistencia.
               </span>
               <button
                 type="button"

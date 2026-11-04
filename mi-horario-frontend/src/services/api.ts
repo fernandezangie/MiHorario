@@ -330,4 +330,15 @@ export const api = {
     if (!res.ok) throw new Error(await extractErrorMessage(res, 'Error consultando catálogo en Redis'));
     return res.json();
   },
+
+  // Catálogo completo de mensajes (Redis -> Backend -> Frontend)
+  async getMessages(): Promise<Record<string, string>> {
+    const res = await authFetch(`${API_BASE_URL}/messages`);
+    if (!res.ok) {
+      throw new Error(
+        await extractErrorMessage(res, 'Error consultando catálogo de mensajes')
+      );
+    }
+    return res.json();
+  },
 };

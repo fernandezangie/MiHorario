@@ -359,29 +359,6 @@ export default function App() {
     await syncWithBackend();
   };
 
-  const handleEmployeeRequestChange = (payload: {
-    employeeId: string;
-    employeeName: string;
-    employeeCode: string;
-    day: number;
-    dateStr: string;
-    currentSchedule: string;
-    reason: string;
-  }) => {
-    const newReq: ShiftChangeRequest = {
-      id: `REQ-${Date.now().toString().slice(-4)}`,
-      ...payload,
-      status: 'PENDING',
-      createdAt: 'Justo ahora',
-    };
-
-    setShiftRequests((prev) => {
-      const updated = [newReq, ...prev];
-      localStorage.setItem('comfama_shift_requests', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
   const handleResolveRequest = async (
     reqId: string,
     status: 'APPROVED' | 'REJECTED'
@@ -557,9 +534,7 @@ export default function App() {
           setSelectedShift(null);
           setSelectedEmployee(null);
         }}
-        onSupervisorUpdateShift={handleSupervisorUpdateShift}
         onEmployeeAcknowledgeShift={handleEmployeeAcknowledgeShift}
-        onEmployeeRequestChange={handleEmployeeRequestChange}
       />
 
       <BackendManagerModal
