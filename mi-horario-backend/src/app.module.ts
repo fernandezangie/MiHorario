@@ -22,7 +22,7 @@ import { RateLimitGuard } from '@shared/infrastructure/security/rate.limit.guard
 import { JwtAuthGuard } from '@shared/infrastructure/security/jwt.auth.guard';
 import { RolesGuard } from '@shared/infrastructure/security/roles.guard';
 import { GlobalExceptionFilter } from '@shared/infrastructure/filters/global.exception.filter';
-import { ValidationExceptionFilter } from '@shared/infrastructure/filters/validation.exception.filter'; // 👈 Importamos tu nuevo filtro de validaciones
+import { ValidationExceptionFilter } from '@shared/infrastructure/filters/validation.exception.filter';
 import { LoggingInterceptor } from '@shared/infrastructure/interceptors/logging.interceptor';
 
 const bootLogger = new Logger('AppModule-Bootstrap');
@@ -77,15 +77,26 @@ function getDatabasePassword(): string {
       }
     }
 
-    const envPass = process.env.DB_PASSWORD || '';
+    // Soporte para variables estándar de entorno o Railway (DB_PASSWORD / PGPASSWORD)
+    let envPass = process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
+
+    // Si no hay ninguna de esas pero existe DATABASE_URL, intentamos extraer la contraseña
+    if (!envPass && process.env.DATABASE_URL) {
+      try {
+        const url = new URL(process.env.DATABASE_URL);
+        envPass = decodeURIComponent(url.password);
+      } catch (e) {
+        // Ignorar error de parsing si la URL no es válida
+      }
+    }
 
     if (!envPass) {
       bootLogger.error(
-        '[SECRET_ERROR] DB_PASSWORD no está definida en el entorno del contenedor.',
+        '[SECRET_ERROR] DB_PASSWORD / PGPASSWORD no está definida en el entorno.',
       );
     } else {
       bootLogger.log(
-        `[SECRET_FALLBACK] Usando DB_PASSWORD del entorno. Longitud: ${envPass.length}`,
+        `[SECRET_FALLBACK] Contraseña obtenida correctamente. Longitud: ${envPass.length}`,
       );
     }
     return envPass;

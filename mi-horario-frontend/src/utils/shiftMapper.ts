@@ -1,6 +1,5 @@
 import { Shift, ShiftType } from '../types/schedule';
 
-// El calendario del frontend usa dinámicamente el año y mes actual del sistema (Noviembre de 2026)
 const now = new Date();
 const SCHEDULE_YEAR = now.getFullYear();
 const SCHEDULE_MONTH = now.getMonth() + 1; // 11 para Noviembre
@@ -11,11 +10,6 @@ function unwrap(v: any): any {
   return v && typeof v === 'object' && 'value' in v ? v.value : v;
 }
 
-/**
- * Convierte "día del mes + hora de entrada/salida (hora Colombia)" en fechas ISO
- * que el backend entiende. Si la salida es igual o anterior a la entrada
- * (turno nocturno, p. ej. 18:00 a 02:00), la salida cae al día siguiente.
- */
 export function buildShiftRange(
   day: number,
   start: string,
@@ -66,9 +60,6 @@ function bogotaParts(date: Date) {
   };
 }
 
-/**
- * Convierte una fila de GET /shift en un turno del calendario.
- */
 export function shiftFromBackend(row: any): Shift | null {
   const employeeId = unwrap(row?.employeeId);
   const start = new Date(unwrap(row?.startTime));
@@ -93,7 +84,6 @@ export function shiftFromBackend(row: any): Shift | null {
     resolvedLocation = zoneField;
   }
 
-  // 👈 Extracción robusta del jobId (soporta objeto relation, string directo, job_id, etc.)
   const jobField = row?.jobId || row?.job_id || row?.job;
   let resolvedJobId = '';
   if (typeof jobField === 'object' && jobField !== null) {
@@ -113,7 +103,7 @@ export function shiftFromBackend(row: any): Shift | null {
     hours,
     label: `Turno (${hours}h)`,
     location: resolvedLocation,
-    jobId: resolvedJobId, // 👈 Ahora el frontend recibirá y recordará el ID del trabajo
+    jobId: resolvedJobId,
     acknowledged: row?.acknowledged ?? row?.isAcknowledged ?? false,
   };
 }

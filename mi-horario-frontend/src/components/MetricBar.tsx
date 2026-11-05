@@ -9,7 +9,6 @@ import {
   UserCheck,
   Clock,
   CheckCircle2,
-  Inbox,
 } from 'lucide-react';
 import {
   AuthUser,
@@ -50,7 +49,6 @@ export const MetricBar: React.FC<MetricBarProps> = ({
   ownEmployee,
   onConfirmAllOwnShifts,
   requests,
-  onResolveRequest,
   onOpenManager,
   onSwitchRole,
   onLogout,
@@ -63,8 +61,6 @@ export const MetricBar: React.FC<MetricBarProps> = ({
   const totalMonthlyHours = ownShiftsList.reduce((acc, s) => acc + (s.hours || 0), 0);
   const confirmedCount = ownShiftsList.filter((s) => s.acknowledged).length;
   const nextWorkingShift = ownShiftsList.find((s) => s.type !== 'REST');
-
-  const pendingRequests = requests.filter((r) => r.status === 'PENDING');
 
   return (
     <header className="corporate-header-wrapper">
@@ -138,94 +134,54 @@ export const MetricBar: React.FC<MetricBarProps> = ({
           PERSPECTIVA 1: BARRA Y HERRAMIENTAS DEL SUPERVISOR
           ==================================================================== */}
       {isAdmin ? (
-        <>
-          <div className="corporate-toolbar">
-            <div className="toolbar-filters">
-              <div className="search-box-wrapper">
-                <Search size={17} className="search-box-icon" />
-                <input
-                  id="search-employee-input"
-                  type="text"
-                  className="search-input"
-                  placeholder="Buscar empleado por nombre, código o cargo..."
-                  value={filterText}
-                  onChange={(e) => onFilterChange(e.target.value)}
-                />
-              </div>
-
-              <select
-                className="department-select"
-                value={selectedDepartment}
-                onChange={(e) => onDepartmentChange(e.target.value)}
-              >
-                <option value="ALL">Todas las áreas ({employeeCount} empleados)</option>
-                {departments.map((dept) => (
-                  <option key={dept} value={dept}>
-                    Área: {dept}
-                  </option>
-                ))}
-              </select>
+        <div className="corporate-toolbar">
+          <div className="toolbar-filters">
+            <div className="search-box-wrapper">
+              <Search size={17} className="search-box-icon" />
+              <input
+                id="search-employee-input"
+                type="text"
+                className="search-input"
+                placeholder="Buscar empleado por nombre, código o cargo..."
+                value={filterText}
+                onChange={(e) => onFilterChange(e.target.value)}
+              />
             </div>
 
-            <div className="toolbar-actions">
-              <button
-                type="button"
-                className="btn-action-primary"
-                onClick={() => onOpenManager('shift')}
-              >
-                <CalendarPlus size={17} />
-                <span>+ Asignar Turno</span>
-              </button>
-
-              <button
-                type="button"
-                className="btn-action-secondary"
-                onClick={() => onOpenManager('employee')}
-              >
-                <UserPlus size={17} />
-                <span>+ Nuevo Empleado</span>
-              </button>
-            </div>
+            <select
+              className="department-select"
+              value={selectedDepartment}
+              onChange={(e) => onDepartmentChange(e.target.value)}
+            >
+              <option value="ALL">Todas las áreas ({employeeCount} empleados)</option>
+              {departments.map((dept) => (
+                <option key={dept} value={dept}>
+                  Área: {dept}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Bandeja de Solicitudes enviadas por Empleados (Exclusivo Supervisor) */}
-          {pendingRequests.length > 0 && (
-            <div className="supervisor-requests-bar">
-              <div className="supervisor-req-title">
-                <Inbox size={17} color="#ED217A" />
-                <span>
-                  Solicitudes de Empleados Pendientes ({pendingRequests.length}):
-                </span>
-              </div>
-              <div className="supervisor-req-list">
-                {pendingRequests.map((req) => (
-                  <div key={req.id} className="supervisor-req-item">
-                    <span>
-                      <strong>{req.employeeName}</strong> ({req.employeeCode}) • Día {req.day} ({req.currentSchedule}):{' '}
-                      <em>"{req.reason}"</em>
-                    </span>
-                    <div className="supervisor-req-actions">
-                      <button
-                        type="button"
-                        className="btn-req-approve"
-                        onClick={() => onResolveRequest(req.id, 'APPROVED')}
-                      >
-                        Aprobar y dar Libre
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-req-reject"
-                        onClick={() => onResolveRequest(req.id, 'REJECTED')}
-                      >
-                        Rechazar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+          <div className="toolbar-actions">
+            <button
+              type="button"
+              className="btn-action-primary"
+              onClick={() => onOpenManager('shift')}
+            >
+              <CalendarPlus size={17} />
+              <span>+ Asignar Turno</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn-action-secondary"
+              onClick={() => onOpenManager('employee')}
+            >
+              <UserPlus size={17} />
+              <span>+ Nuevo Empleado</span>
+            </button>
+          </div>
+        </div>
       ) : (
         /* ====================================================================
            PERSPECTIVA 2: RESUMEN Y CONTROLES DEL EMPLEADO
@@ -279,7 +235,7 @@ export const MetricBar: React.FC<MetricBarProps> = ({
           <div className="employee-toolbar-row" style={{ justifyContent: 'flex-end' }}>
             <div className="employee-quick-actions">
               <span className="employee-click-tip">
-                Haz clic en cualquier día de tu fila para confirmar asistencia.
+                Haz clic en cualquier día de tu fila para <strong>confirmar asistencia</strong>.
               </span>
               <button
                 type="button"

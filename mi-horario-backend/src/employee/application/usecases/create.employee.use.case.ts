@@ -5,21 +5,20 @@ import { EmployeeStatus } from '@employee/domain/model/enums/employee.status.enu
 import { EmployeeRepositoryPort } from '@employee/domain/ports/employee.repository.port';
 import { CreateEmployeeDto } from '@employee/application/dtos/create.employee.dto';
 import { Inject, Injectable, BadRequestException } from '@nestjs/common';
-import { NotificationService } from '@shared/infrastructure/messaging/notification.service';
 import { EmployeeName } from '@employee/domain/model/value-objects/employee.name.vo';
-import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service'; //
+import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
+import { NotificationService } from '@shared/infrastructure/messaging/notification.service';
 
 @Injectable()
 export class CreateEmployeeUseCase {
   constructor(
     @Inject('EmployeeRepositoryPort')
     private readonly employeeRepository: EmployeeRepositoryPort,
-    private readonly notificationService: NotificationService,
     private readonly messageCatalogService: MessageCatalogService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async execute(dto: CreateEmployeeDto): Promise<void> {
-
     const existingEmployee = await this.employeeRepository.findById(dto.code);
     if (existingEmployee) {
       const errorMessage = await this.messageCatalogService.getMessage(
@@ -41,17 +40,17 @@ export class CreateEmployeeUseCase {
     // 1. Guardar el empleado en la base de datos
     await this.employeeRepository.save(employee);
 
-    // 2. Obtener mensaje del catálogo para el correo o la respuesta si lo requieres
+    // 2. Obtener el asunto del catálogo
     const welcomeSubject = await this.messageCatalogService.getMessage(
       'WELCOME_EMAIL_SUBJECT',
       'es',
     );
 
-    // 3. Enviar el correo de bienvenida usando el texto dinámico de Redis
-    await this.notificationService.sendEmailNotification(
+    // 3. Enviar el correo de bienvenida sin bloquear la respuesta
+    void this.notificationService.sendEmailNotification(
       'WELCOME_EMPLOYEE',
       employee.getEmail().getValue(),
-      welcomeSubject, //
+      welcomeSubject,
       {
         code: employee.getCode().getValue(),
         name: employee.getName().getValue(),
