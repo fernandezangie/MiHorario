@@ -45,7 +45,6 @@ function checkTcpPortReachable(
         // Leer la contraseña desde el archivo en la carpeta secrets/redis_password.txt
         let password = configService.get<string>('redis.password');
         try {
-          // Asume que la carpeta 'secrets' está en la raíz del proyecto backend
           const secretFilePath = path.resolve(
             process.cwd(),
             'secrets',
@@ -60,36 +59,35 @@ function checkTcpPortReachable(
           );
         }
 
-        if (isRedisUp) {
-          try {
-            const store = await redisStore({
-              socket: {
-                host,
-                port,
-                tls: false, // Desactivado según tu configuración
-              } as any,
-              username: configService.get<string>('redis.user') || 'default',
-              password: password,
-            });
-
-            return {
-              store: () => store as any,
-              ttl: 300000,
-            };
-          } catch {
-            cacheLogger.warn(
-              'No fue posible autenticar en Redis; activando caché en memoria de respaldo.',
-            );
-          }
-        } else {
-          cacheLogger.warn(
-            `Redis (${host}:${port}) no detectado; activando caché en memoria de respaldo.`,
+        // MODO ESTRICTO: Si Redis no está disponible, bloqueamos y lanzamos error fatal
+        if (!isRedisUp) {
+          cacheLogger.error(
+            `[FATAL] Redis (${host}:${port}) no está disponible. El sistema requiere Redis obligatorio para el catálogo de mensajes.`,
           );
+          throw new Error(`Redis connection failed: ${host}:${port} is unreachable.`);
         }
 
-        return {
-          ttl: 300000,
-        };
+        try {
+          const store = await redisStore({
+            socket: {
+              host,
+              port,
+              tls: false,
+            } as any,
+            username: configService.get<string>('redis.user') || 'default',
+            password: password,
+          });
+
+          return {
+            store: () => store as any,
+            ttl: 300000,
+          };
+        } catch (error) {
+          cacheLogger.error(
+            `[FATAL] Error de autenticación o conexión con Redis: ${error.message}`,
+          );
+          throw new Error(`Redis authentication/connection failed: ${error.message}`);
+        }
       },
     }),
   ],

@@ -22,7 +22,7 @@ import { RateLimitGuard } from '@shared/infrastructure/security/rate.limit.guard
 import { JwtAuthGuard } from '@shared/infrastructure/security/jwt.auth.guard';
 import { RolesGuard } from '@shared/infrastructure/security/roles.guard';
 import { GlobalExceptionFilter } from '@shared/infrastructure/filters/global.exception.filter';
-import { ValidationExceptionFilter } from '@shared/infrastructure/filters/validation.exception.filter'; // 👈 Importamos tu nuevo filtro de validaciones
+import { ValidationExceptionFilter } from '@shared/infrastructure/filters/validation.exception.filter';
 import { LoggingInterceptor } from '@shared/infrastructure/interceptors/logging.interceptor';
 
 const bootLogger = new Logger('AppModule-Bootstrap');

@@ -226,24 +226,41 @@ export class AssignShiftToEmployeeUseCase {
     await this.shiftRepository.save(shift);
     await this.cacheService.del('shifts:all_active');
 
-    const shiftSubject = await this.messageCatalogService.getMessage(
-      'NEW_SHIFT_EMAIL_SUBJECT',
-      'es',
-    );
+    // El turno ya está guardado: el correo se envía en segundo plano
+    // para que la respuesta no espere a Brevo ni a Redis.
+    if (employeeEmail) {
+      void this.sendShiftEmail(employeeEmail, startTime, endTime);
+    }
+  }
 
+  private async sendShiftEmail(
+    email: string,
+    startTime: Date,
+    endTime: Date,
+  ): Promise<void> {
     try {
-      if (employeeEmail) {
-        await this.notificationService.sendEmailNotification(
-          'NEW_SHIFT_EMAIL_SUBJECT',
-          employeeEmail,
-          shiftSubject || 'Nuevo turno asignado',
-          { startTime: dto.startTime, endTime: dto.endTime },
-        );
-      }
+      const subject = await this.messageCatalogService.getMessage(
+        'NEW_SHIFT_EMAIL_SUBJECT',
+        'es',
+      );
+
+      const format = (d: Date) =>
+        d.toLocaleString('es-CO', {
+          timeZone: 'America/Bogota',
+          dateStyle: 'full',
+          timeStyle: 'short',
+        });
+
+      await this.notificationService.sendEmailNotification(
+        'NEW_SHIFT_EMAIL_SUBJECT',
+        email,
+        subject || 'Nuevo turno asignado',
+        { startTime: format(startTime), endTime: format(endTime) },
+      );
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error(
-        'No se pudo enviar el correo, pero el turno fue creado exitosamente:',
-        error,
+        `No se pudo enviar el correo, pero el turno fue creado: ${message}`,
       );
     }
   }

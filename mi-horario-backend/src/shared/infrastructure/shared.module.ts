@@ -4,7 +4,6 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { CacheService } from './cache/cache.service';
 import { MessageCatalogService } from './messaging/message.catalog.service';
 import { MessageTestController } from './messaging/message.test.controller';
-import { NotificationService } from './messaging/notification.service';
 import { getSecret } from './config/secret.loader';
 
 @Global()
@@ -33,8 +32,8 @@ import { getSecret } from './config/secret.loader';
       },
     }),
   ],
-  providers: [CacheService, MessageCatalogService, NotificationService],
+  providers: [CacheService, MessageCatalogService],
   controllers: [MessageTestController],
-  exports: [MessageCatalogService, CacheService, NotificationService],
+  exports: [MessageCatalogService, CacheService],
 })
 export class SharedModule { }
