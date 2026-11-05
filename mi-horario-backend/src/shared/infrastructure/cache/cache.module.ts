@@ -3,8 +3,6 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { redisStore } from 'cache-manager-redis-yet';
 import * as net from 'net';
-import * as fs from 'fs';
-import * as path from 'path';
 import { CacheService } from './cache.service';
 import { ParameterCatalogService } from './parameter.catalog.service';
 
@@ -13,7 +11,7 @@ const cacheLogger = new Logger('CustomCacheModule');
 function checkTcpPortReachable(
   host: string,
   port: number,
-  timeoutMs = 1200,
+  timeoutMs = 3000,
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -38,7 +36,6 @@ function checkTcpPortReachable(
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
-        // Intentar leer host y puerto de la configuración o variables de entorno de Railway
         const host =
           configService.get<string>('redis.host') ||
           process.env.REDIS_HOST ||
@@ -52,13 +49,12 @@ function checkTcpPortReachable(
             6379,
         );
 
-        // Intentar leer la contraseña de la configuración o variables de entorno
         let password =
           configService.get<string>('redis.password') ||
           process.env.REDIS_PASSWORD ||
           process.env.REDISPASSWORD;
 
-        // Si Railway provee una URL completa (REDIS_URL), extraer contraseña de ahí
+        // Si Railway provee una URL completa (REDIS_URL), extraer la contraseña
         if (!password && process.env.REDIS_URL) {
           try {
             const url = new URL(process.env.REDIS_URL);
@@ -68,32 +64,14 @@ function checkTcpPortReachable(
           }
         }
 
-        // Fallback al archivo local si existe (para desarrollo local)
-        try {
-          const secretFilePath = path.resolve(
-            process.cwd(),
-            'secrets',
-            'redis_password.txt',
-          );
-          if (!password && fs.existsSync(secretFilePath)) {
-            password = fs.readFileSync(secretFilePath, 'utf8').trim();
-          }
-        } catch (err) {
-          cacheLogger.warn(
-            'No se pudo leer el archivo secrets/redis_password.txt, usando configuración de entorno.',
-          );
-        }
-
         const isRedisUp = await checkTcpPortReachable(host, port);
 
-        // MODO ESTRICTO: Si Redis no está disponible, bloqueamos y lanzamos error fatal
+        // MODO TOLERANTE: sin Redis, el backend arranca con caché en memoria
         if (!isRedisUp) {
-          cacheLogger.error(
-            `[FATAL] Redis (${host}:${port}) no está disponible. El sistema requiere Redis obligatorio para el catálogo de mensajes.`,
+          cacheLogger.warn(
+            `Redis (${host}:${port}) no disponible. Se usa caché en memoria; el catálogo de mensajes usará los textos de respaldo.`,
           );
-          throw new Error(
-            `Redis connection failed: ${host}:${port} is unreachable.`,
-          );
+          return { ttl: 300000 }; // sin "store": caché en memoria
         }
 
         try {
@@ -102,12 +80,20 @@ function checkTcpPortReachable(
               host,
               port,
               tls: false,
+              // Reintenta cada 0,5 s, aumentando hasta un máximo de 5 s
+              reconnectStrategy: (retries: number) =>
+                Math.min(retries * 500, 5000),
             } as any,
             username:
               configService.get<string>('redis.user') ||
               process.env.REDIS_USER ||
               'default',
-            password: password,
+            password,
+          });
+
+          // Evita que un corte de Redis tumbe el proceso por un error sin manejar
+          (store as any).client?.on?.('error', (err: Error) => {
+            cacheLogger.warn(`Redis: ${err.message}`);
           });
 
           return {
@@ -115,12 +101,12 @@ function checkTcpPortReachable(
             ttl: 300000,
           };
         } catch (error) {
-          cacheLogger.error(
-            `[FATAL] Error de autenticación o conexión con Redis: ${error.message}`,
+          const message =
+            error instanceof Error ? error.message : String(error);
+          cacheLogger.warn(
+            `No se pudo conectar a Redis (${message}). Se usa caché en memoria.`,
           );
-          throw new Error(
-            `Redis authentication/connection failed: ${error.message}`,
-          );
+          return { ttl: 300000 };
         }
       },
     }),
