@@ -5,6 +5,8 @@ export class AssignShiftDto {
   @IsString()
   employeeId: string;
 
+  // asignar prueba
+
   @IsOptional()
   @IsString()
   startTime?: string;
