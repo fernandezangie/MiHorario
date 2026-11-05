@@ -26,20 +26,23 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
+    console.log('RolesGuard -> request.user:', JSON.stringify(request.user));
     const user = request.user;
 
-    const userRoles: AppRole[] = Array.isArray(user?.roles)
-      ? user.roles
-      : user?.role
-        ? [user.role]
-        : [];
+    const rawRoles =
+      user?.roles ||
+      user?.realm_access?.roles ||
+      user?.rawPayload?.realm_access?.roles ||
+      (user?.role ? [user.role] : []);
+
+    const userRoles: AppRole[] = Array.isArray(rawRoles) ? rawRoles : [];
 
     const hasPermission = requiredRoles.some((reqRole) =>
       userRoles.includes(reqRole),
     );
 
     if (!user || !hasPermission) {
-      const rolesString = userRoles.join(',') || 'ANÓNIMO';
+      const rolesString = userRoles.length > 0 ? userRoles.join(', ') : 'ANÓNIMO';
 
       const message = await this.messageCatalogService.getMessage(
         'ROLE_ACCESS_DENIED',
