@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Desplegar backend
-        run: railway up --ci --service backend
+        run: railway up --ci --service MiHorario
 
       - name: Desplegar frontend
-        run: railway up --ci --service frontend
+        run: railway up --ci --service Frontend
