@@ -47,27 +47,20 @@ export class MessageCatalogService {
   }
 
   /**
-   * Devuelve el texto de la plantilla. Si Redis no responde, devuelve ''
-   * para que quien llama use su texto de respaldo. Si Redis responde pero
-   * el código no existe, devuelve el código (comportamiento original).
+   * Devuelve el texto de la plantilla. Si Redis no responde o el código
+   * no existe, devuelve el propio código (comportamiento original).
    */
   async getMessageTemplate(code: string, lang: string = 'es'): Promise<string> {
     const client = this.getRedisClient();
-    if (!client || client.isReady === false) return '';
+    if (!client || client.isReady === false) return code;
 
     const hashKey = `messages:${lang}`;
-    const message = await this.withTimeout<string | null | undefined>(
-      async () => {
-        if (typeof client.hGet === 'function')
-          return client.hGet(hashKey, code);
-        if (typeof client.hget === 'function')
-          return client.hget(hashKey, code);
-        return null;
-      },
-      undefined,
-    );
+    const message = await this.withTimeout<string | null>(async () => {
+      if (typeof client.hGet === 'function') return client.hGet(hashKey, code);
+      if (typeof client.hget === 'function') return client.hget(hashKey, code);
+      return null;
+    }, null);
 
-    if (message === undefined) return ''; // Redis falló o tardó
     return message || code;
   }
 
