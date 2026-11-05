@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { ShiftRepositoryPort } from '@shift/domain/ports/shift.repository.port';
 import { AssignShiftDto } from '@shift/application/dtos/assign.shift.dto';
-import { ShiftEntity } from '@shift/domain/model/entities/shift.entity';
+import {
+  ShiftEntity,
+  MIN_SHIFT_HOURS,
+  MAX_SHIFT_HOURS,
+} from '@shift/domain/model/entities/shift.entity';
 import { NotificationService } from '@shared/infrastructure/messaging/notification.service';
 import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
 import { CacheService } from '@shared/infrastructure/cache/cache.service';
@@ -154,6 +158,43 @@ export class AssignShiftToEmployeeUseCase {
       );
     }
 
+    // === 3. DURACIÓN DE LA JORNADA: mínimo 8 h, máximo 12 h ===
+    // (Redis: SHIFT_MIN_DURATION y SHIFT_MAX_DURATION)
+    // Las constantes vienen de la entidad, que aplica la misma regla
+    // como red de seguridad.
+    const durationHours =
+      (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+
+    if (durationHours < MIN_SHIFT_HOURS) {
+      let msg = await this.messageCatalogService.getMessage(
+        'SHIFT_MIN_DURATION',
+        'es',
+        {
+          minimo: MIN_SHIFT_HOURS.toString(),
+          actual: durationHours.toFixed(1),
+        },
+      );
+      if (!msg) {
+        msg = `El turno debe durar al menos ${MIN_SHIFT_HOURS} horas (jornada laboral). Duración indicada: ${durationHours.toFixed(1)} horas.`;
+      }
+      throw new BadRequestException(msg);
+    }
+
+    if (durationHours > MAX_SHIFT_HOURS) {
+      let msg = await this.messageCatalogService.getMessage(
+        'SHIFT_MAX_DURATION',
+        'es',
+        {
+          maximo: MAX_SHIFT_HOURS.toString(),
+          actual: durationHours.toFixed(1),
+        },
+      );
+      if (!msg) {
+        msg = `El turno no puede durar más de ${MAX_SHIFT_HOURS} horas. Duración indicada: ${durationHours.toFixed(1)} horas.`;
+      }
+      throw new BadRequestException(msg);
+    }
+
     // Hora de salida en zona Bogotá (hora y minuto)
     const endParts = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Bogota',
@@ -212,7 +253,8 @@ export class AssignShiftToEmployeeUseCase {
     const zoneToSave = dto.zone || dto.location || null;
     const jobToSave = dto.jobId || (dto as any).job || null;
 
-    const shift = new ShiftEntity(
+    // create() aplica también la regla de duración en el dominio
+    const shift = ShiftEntity.create(
       shiftId,
       targetEmployeeId,
       startTime,
