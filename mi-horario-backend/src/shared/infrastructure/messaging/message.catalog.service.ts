@@ -1,17 +1,40 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
+const REDIS_TIMEOUT_MS = 2000;
+
 @Injectable()
 export class MessageCatalogService {
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) { }
+  private readonly logger = new Logger(MessageCatalogService.name);
+
+  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
 
   private getRedisClient(): any {
     const store: any = this.cacheManager.store;
     return (
-      store.client ||
-      (typeof store.getClient === 'function' ? store.getClient() : null)
+      store?.client ||
+      (typeof store?.getClient === 'function' ? store.getClient() : null)
     );
+  }
+
+  /** Ejecuta la operación con tiempo máximo; si falla o tarda, devuelve el respaldo */
+  private async withTimeout<T>(op: () => Promise<T>, fallback: T): Promise<T> {
+    try {
+      return await Promise.race([
+        op(),
+        new Promise<T>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`timeout de ${REDIS_TIMEOUT_MS} ms`)),
+            REDIS_TIMEOUT_MS,
+          ),
+        ),
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Catálogo de mensajes no disponible: ${message}`);
+      return fallback;
+    }
   }
 
   async getMessage(
@@ -23,48 +46,51 @@ export class MessageCatalogService {
     return this.formatMessage(message, args);
   }
 
+  /**
+   * Devuelve el texto de la plantilla. Si Redis no responde, devuelve ''
+   * para que quien llama use su texto de respaldo. Si Redis responde pero
+   * el código no existe, devuelve el código (comportamiento original).
+   */
   async getMessageTemplate(code: string, lang: string = 'es'): Promise<string> {
-    try {
-      const client = this.getRedisClient();
-      const hashKey = `messages:${lang}`;
-      let message: string | null = null;
+    const client = this.getRedisClient();
+    if (!client || client.isReady === false) return '';
 
-      if (client) {
-        if (typeof client.hGet === 'function') {
-          message = await client.hGet(hashKey, code);
-        } else if (typeof client.hget === 'function') {
-          message = await client.hget(hashKey, code);
-        }
-      }
+    const hashKey = `messages:${lang}`;
+    const message = await this.withTimeout<string | null | undefined>(
+      async () => {
+        if (typeof client.hGet === 'function')
+          return client.hGet(hashKey, code);
+        if (typeof client.hget === 'function')
+          return client.hget(hashKey, code);
+        return null;
+      },
+      undefined,
+    );
 
-      return message || code;
-    } catch (error) {
-      console.error('MESSAGE_ERROR:', error);
-      return code;
-    }
+    if (message === undefined) return ''; // Redis falló o tardó
+    return message || code;
   }
 
   async getAllMessages(lang: string = 'es'): Promise<Record<string, string>> {
-    try {
-      const client = this.getRedisClient();
-      if (!client) return {};
+    const client = this.getRedisClient();
+    if (!client || client.isReady === false) return {};
 
-      const hashKey = `messages:${lang}`;
-      const data =
-        typeof client.hGetAll === 'function'
-          ? await client.hGetAll(hashKey)
-          : typeof client.hgetall === 'function'
-            ? await client.hgetall(hashKey)
-            : null;
-
-      return data || {};
-    } catch (error) {
-      console.error('MESSAGE_ERROR:', error);
-      return {};
-    }
+    const hashKey = `messages:${lang}`;
+    const data = await this.withTimeout<Record<string, string> | null>(
+      async () => {
+        if (typeof client.hGetAll === 'function')
+          return client.hGetAll(hashKey);
+        if (typeof client.hgetall === 'function')
+          return client.hgetall(hashKey);
+        return null;
+      },
+      null,
+    );
+    return data || {};
   }
 
   private formatMessage(message: string, args: Record<string, string>): string {
+    if (!message) return '';
     return message.replace(/{(\w+)}/g, (_, key) => args[key] || `{${key}}`);
   }
 }
