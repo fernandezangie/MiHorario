@@ -3,14 +3,18 @@ import { CreateRestrictionUseCase } from '@restriction/application/usecases/crea
 import { FindRestrictionsByEmployeeUseCase } from '@restriction/application/usecases/find.restrictions.by.employee.use.case';
 import { CreateRestrictionDto } from '@restriction/application/dtos/create.restriction.dto';
 import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '@shared/infrastructure/security/jwt.auth.guard';
+import { RolesGuard } from '@shared/infrastructure/security/roles.guard';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('restriction')
 export class RestrictionController {
   constructor(
     private readonly createRestrictionUseCase: CreateRestrictionUseCase,
     private readonly findRestrictionsByEmployeeUseCase: FindRestrictionsByEmployeeUseCase,
     private readonly messageCatalogService: MessageCatalogService,
-  ) {}
+  ) { }
 
   @Post()
   async create(@Body() dto: CreateRestrictionDto) {
