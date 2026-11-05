@@ -1,0 +1,40 @@
+name: CI / Deploy Pipeline
+
+on:
+  push:
+    branches: [ "daniel-rama", "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: mi-horario-backend/package-lock.json
+
+      - name: Instalar dependencias del backend
+        working-directory: ./mi-horario-backend
+        run: npm ci
+
+      - name: Compilar backend
+        working-directory: ./mi-horario-backend
+        run: npm run build
+        env:
+          KEYCLOAK_URL: ${{ secrets.KEYCLOAK_URL }}
+          KEYCLOAK_REALM: ${{ secrets.KEYCLOAK_REALM }}
+          KEYCLOAK_CLIENT_SECRET: ${{ secrets.KEYCLOAK_CLIENT_SECRET }}
+          PORT: 3000
+
+      - name: Desplegar en Railway
+        working-directory: ./mi-horario-backend
+        run: |
+          npx @railway/cli up --service "MiHorario" -d
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
