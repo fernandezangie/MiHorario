@@ -6,10 +6,19 @@ import { MessageCatalogService } from './messaging/message.catalog.service';
 import { MessageTestController } from './messaging/message.test.controller';
 import { NotificationService } from './messaging/notification.service';
 import { getSecret } from './config/secret.loader';
+import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from './security/jwt.strategy';
+import { JwtAuthGuard } from './security/jwt.auth.guard';
+import { RolesGuard } from './security/roles.guard';
+import { JwtTokenService } from './security/jwt.token.service';
 
 @Global()
 @Module({
   imports: [
+    // 1. Registro global de la estrategia JWT de Passport
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+
+    // Configuración existente de correo
     MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -20,7 +29,7 @@ import { getSecret } from './config/secret.loader';
           transport: {
             host: config.get<string>('MAIL_HOST') || 'smtp.gmail.com',
             port: Number(config.get<string>('MAIL_PORT') ?? 465),
-            secure: true, // true para el puerto 465 (Recomendado y estable para Gmail con SSL)
+            secure: true,
             auth: {
               user: config.get<string>('MAIL_USER'),
               pass: mailPass,
@@ -33,8 +42,24 @@ import { getSecret } from './config/secret.loader';
       },
     }),
   ],
-  providers: [CacheService, MessageCatalogService, NotificationService],
+  providers: [
+    CacheService,
+    MessageCatalogService,
+    NotificationService,
+    JwtStrategy,
+    JwtAuthGuard,
+    RolesGuard,
+    JwtTokenService,
+  ],
   controllers: [MessageTestController],
-  exports: [MessageCatalogService, CacheService, NotificationService],
+  exports: [
+    PassportModule,
+    JwtAuthGuard,
+    RolesGuard,
+    JwtTokenService,
+    MessageCatalogService,
+    CacheService,
+    NotificationService,
+  ],
 })
 export class SharedModule { }

@@ -4,22 +4,22 @@ import { AuthController } from './controllers/auth.controller';
 import { AuthService } from '../application/auth.service';
 import { UserOrmEntity } from './persistence/typeorm/user.orm.entity';
 import { EmployeeOrmEntity } from '../../employee/infrastructure/persistence/typeorm/employee.orm.entity';
-import { JwtTokenService } from '@shared/infrastructure/security/jwt.token.service';
-import { JwtAuthGuard } from '@shared/infrastructure/security/jwt.auth.guard';
-import { RolesGuard } from '@shared/infrastructure/security/roles.guard';
-import { RateLimitGuard } from '@shared/infrastructure/security/rate.limit.guard';
+
+// Importa el SharedModule que contiene MessageCatalogService y la seguridad
+import { SharedModule } from '@shared/infrastructure/shared.module';
 
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([UserOrmEntity, EmployeeOrmEntity])],
+  imports: [
+    TypeOrmModule.forFeature([UserOrmEntity, EmployeeOrmEntity]),
+    SharedModule, // <-- Resuelve la inyección de MessageCatalogService en AuthService
+  ],
   controllers: [AuthController],
   providers: [
     AuthService,
-    JwtTokenService,
-    JwtAuthGuard,
-    RolesGuard,
-    RateLimitGuard,
   ],
-  exports: [JwtTokenService, JwtAuthGuard, RolesGuard, RateLimitGuard],
+  exports: [
+    AuthService,
+  ],
 })
-export class AuthModule {}
+export class AuthModule { }

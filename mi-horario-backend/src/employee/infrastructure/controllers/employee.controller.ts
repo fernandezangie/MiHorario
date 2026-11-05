@@ -12,14 +12,18 @@ import { ListEmployeesUseCase } from '@employee/application/usecases/list.employ
 import { CreateEmployeeDto } from '@employee/application/dtos/create.employee.dto';
 import { Roles } from '@shared/infrastructure/security/roles.decorator';
 import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
+import { JwtAuthGuard } from '@shared/infrastructure/security/jwt.auth.guard';
+import { RolesGuard } from '@shared/infrastructure/security/roles.guard';
+import { UseGuards } from '@nestjs/common';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('employees')
 export class EmployeeController {
   constructor(
     private readonly createEmployeeUseCase: CreateEmployeeUseCase,
     private readonly listEmployeesUseCase: ListEmployeesUseCase,
     private readonly messageCatalogService: MessageCatalogService,
-  ) {}
+  ) { }
 
   @Roles('ADMIN')
   @Post()

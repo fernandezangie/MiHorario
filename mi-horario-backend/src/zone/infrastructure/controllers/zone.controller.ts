@@ -3,7 +3,11 @@ import { CreateZoneUseCase } from '@zone/application/usecases/create.zone.use.ca
 import { ListZonesUseCase } from '@zone/application/usecases/list.zones.use.case';
 import { CreateZoneDto } from '@zone/application/dtos/create.zone.dto';
 import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
+import { JwtAuthGuard } from '@shared/infrastructure/security/jwt.auth.guard';
+import { RolesGuard } from '@shared/infrastructure/security/roles.guard';
+import { UseGuards } from '@nestjs/common';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('zone')
 export class ZoneController {
   constructor(

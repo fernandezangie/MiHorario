@@ -16,7 +16,11 @@ import { UpdateShiftUseCase } from '@shift/application/usecases/update.shift.use
 import { AssignShiftDto } from '@shift/application/dtos/assign.shift.dto';
 import { UpdateShiftDto } from '@shift/application/dtos/update.shift.dto';
 import { MessageCatalogService } from '@shared/infrastructure/messaging/message.catalog.service';
+import { JwtAuthGuard } from '@shared/infrastructure/security/jwt.auth.guard';
+import { RolesGuard } from '@shared/infrastructure/security/roles.guard';
+import { UseGuards } from '@nestjs/common';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('shift')
 export class ShiftController {
   constructor(
@@ -26,7 +30,7 @@ export class ShiftController {
     private readonly acknowledgeShiftUseCase: AcknowledgeShiftUseCase,
     private readonly updateShiftUseCase: UpdateShiftUseCase,
     private readonly messageCatalogService: MessageCatalogService,
-  ) {}
+  ) { }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
