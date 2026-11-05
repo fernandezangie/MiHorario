@@ -1,40 +1,48 @@
-name: CI / Deploy Pipeline
+name: CI/CD Railway
 
 on:
   push:
-    branches: [ "daniel-rama", "main" ]
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout del código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: mi-horario-backend/package-lock.json
 
-      - name: Instalar dependencias del backend
-        working-directory: ./mi-horario-backend
-        run: npm ci
-
-      - name: Compilar backend
-        working-directory: ./mi-horario-backend
-        run: npm run build
-        env:
-          KEYCLOAK_URL: ${{ secrets.KEYCLOAK_URL }}
-          KEYCLOAK_REALM: ${{ secrets.KEYCLOAK_REALM }}
-          KEYCLOAK_CLIENT_SECRET: ${{ secrets.KEYCLOAK_CLIENT_SECRET }}
-          PORT: 3000
-
-      - name: Desplegar en Railway
-        working-directory: ./mi-horario-backend
+      - name: Backend - instalar y compilar
+        working-directory: mi-horario-backend
         run: |
-          npx @railway/cli up --service "MiHorario" -d
+          npm install --legacy-peer-deps
+          npm run build
+
+      - name: Frontend - instalar y compilar
+        working-directory: mi-horario-frontend
+        run: |
+          npm ci
+          npm run build
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          VITE_API_URL: https://mihorario-production-944f.up.railway.app
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Desplegar backend
+        run: railway up --ci --service backend
+
+      - name: Desplegar frontend
+        run: railway up --ci --service frontend
