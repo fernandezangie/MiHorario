@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { X, UserPlus, CalendarPlus, MapPin, Bell, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
+import { useMessages } from '../hooks/useMessages';
 import { Employee, ManagerTab } from '../types/schedule';
+
+// Día actual en zona horaria de Bogotá (evita desfases con la zona del navegador)
+const getBogotaDay = () =>
+  parseInt(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Bogota',
+      day: 'numeric',
+    }).format(new Date()),
+    10,
+  );
 
 interface BackendManagerModalProps {
   isOpen: boolean;
@@ -22,6 +33,9 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   employees,
   backendOnline,
 }) => {
+  // Catálogo de mensajes (Redis -> Backend -> Frontend)
+  const { t } = useMessages();
+
   const [tab, setTab] = useState<ManagerTab>(initialTab);
   const [statusMsg, setStatusMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,9 +55,37 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   // Estados para los trabajos (jobs) dinámicos desde la BD
   const [jobsList, setJobsList] = useState<Array<{ id: string; title: string }>>([]);
 
+  // Employee Form
+  const [empCode, setEmpCode] = useState('COM-2055');
+  const [empName, setEmpName] = useState('');
+  const [empEmail, setEmpEmail] = useState('');
+  const [empRole, setEmpRole] = useState('Operador Atracciones');
+  const [empDept, setEmpDept] = useState('Operaciones Parque');
+
+  // Shift Form
+  const [shiftEmpId, setShiftEmpId] = useState(employees[0]?.id || 'EMP-1001');
+  const [shiftDay, setShiftDay] = useState(getBogotaDay());
+  const [shiftStart, setShiftStart] = useState('08:00');
+  const [shiftEnd, setShiftEnd] = useState('16:00');
+  const [shiftZone, setShiftZone] = useState('Zona Transporte');
+  const [shiftJobId, setShiftJobId] = useState('');
+
+  // Zone Form
+  const [zoneName, setZoneName] = useState('');
+  const [zoneLocation, setZoneLocation] = useState('Parque Comfama Rionegro');
+  const [zoneDesc, setZoneDesc] = useState('');
+
+  // Message Catalog Test
+  const [catalogCode, setCatalogCode] = useState('EMPLOYEE_REGISTER_SUCCESS');
+  const [catalogResult, setCatalogResult] = useState<string | null>(null);
+
   useEffect(() => {
-    setTab(initialTab);
     setStatusMsg(null);
+
+    // Al abrir el modal, mostrar la pestaña que pidió el botón
+    if (isOpen) {
+      setTab(initialTab);
+    }
 
     // Cargar catálogos reales del backend al abrir el modal si está online
     const fetchCatalogsFromDb = async () => {
@@ -54,9 +96,9 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
             if (Array.isArray(data) && data.length > 0) {
               const formattedZones = data.map((z: any) => (typeof z === 'object' ? z.name : z));
               setZonesList(formattedZones);
-              if (formattedZones.length > 0) {
-                setShiftZone(formattedZones[0]);
-              }
+              setShiftZone((prev) =>
+                formattedZones.includes(prev) ? prev : formattedZones[0],
+              );
             }
           }
         } catch (err) {
@@ -79,31 +121,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     if (isOpen) {
       fetchCatalogsFromDb();
     }
-  }, [initialTab, isOpen, backendOnline]);
-
-  // Employee Form
-  const [empCode, setEmpCode] = useState('COM-2055');
-  const [empName, setEmpName] = useState('');
-  const [empEmail, setEmpEmail] = useState('');
-  const [empRole, setEmpRole] = useState('Operador Atracciones');
-  const [empDept, setEmpDept] = useState('Operaciones Parque');
-
-  // Shift Form
-  const [shiftEmpId, setShiftEmpId] = useState(employees[0]?.id || 'EMP-1001');
-  const [shiftDay, setShiftDay] = useState(new Date().getDate());
-  const [shiftStart, setShiftStart] = useState('08:00');
-  const [shiftEnd, setShiftEnd] = useState('16:00');
-  const [shiftZone, setShiftZone] = useState('Zona Transporte');
-  const [shiftJobId, setShiftJobId] = useState('');
-
-  // Zone Form
-  const [zoneName, setZoneName] = useState('');
-  const [zoneLocation, setZoneLocation] = useState('Parque Comfama Rionegro');
-  const [zoneDesc, setZoneDesc] = useState('');
-
-  // Message Catalog Test
-  const [catalogCode, setCatalogCode] = useState('EMPLOYEE_REGISTER_SUCCESS');
-  const [catalogResult, setCatalogResult] = useState<string | null>(null);
+  }, [isOpen, backendOnline, initialTab]);
 
   useEffect(() => {
     if (employees.length > 0 && !employees.some((e) => e.id === shiftEmpId)) {
@@ -113,6 +131,12 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Validación flexible para reconocer si se encuentra en la pestaña de empleado ('employee' o 'employees')
+  const isEmployeeTab =
+    tab === 'employee' ||
+    (tab as string) === 'employees' ||
+    (tab as string) === 'new-employee';
+
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -120,19 +144,24 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     try {
       let backendMessage: string | undefined;
       if (backendOnline) {
-        const res = await api.createEmployee({ code: empCode, name: empName, email: empEmail });
+        const res = await (api as any).createEmployee({
+          id: empCode.trim(),
+          code: empCode.trim(),
+          name: empName.trim(),
+          email: empEmail.trim()
+        });
         backendMessage = res?.message;
       }
       onEmployeeCreated({
-        code: empCode,
-        name: empName,
-        email: empEmail,
+        code: empCode.trim(),
+        name: empName.trim(),
+        email: empEmail.trim(),
         role: empRole,
         department: empDept,
       });
       setStatusMsg({
         type: 'ok',
-        text: backendMessage || `El colaborador "${empName}" fue agregado exitosamente a la programación.`,
+        text: backendMessage || `El colaborador "${empName.trim()}" fue agregado exitosamente a la programación.`,
       });
       setEmpName('');
       setEmpEmail('');
@@ -155,7 +184,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
         const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
         const dayStr = String(shiftDay).padStart(2, '0');
 
-        // Formato con offset local de Colombia (-05:00) en lugar de UTC (Z)
+        // Formato con offset local de Colombia (-05:00)
         const startTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftStart}:00-05:00`;
         const endTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftEnd}:00-05:00`;
 
@@ -185,6 +214,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
         type: 'ok',
         text:
           backendMessage ||
+          t('SHIFT_ASSIGN_SUCCESS') ||
           `Turno asignado a ${empObj?.name || shiftEmpId} para el ${shiftDay} de ${nombreMes} (${shiftStart} a ${shiftEnd}) en ${shiftZone}${jobObj ? ` [Trabajo: ${jobObj.title}]` : ''}.`,
       });
     } catch (err: any) {
@@ -200,8 +230,8 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     setStatusMsg(null);
     try {
       let backendMessage: string | undefined;
-      if (backendOnline) {
-        const res = await api.createZone({ name: zoneName, description: zoneDesc, location: zoneLocation });
+      if (backendOnline && typeof (api as any).createZone === 'function') {
+        const res = await (api as any).createZone({ name: zoneName, description: zoneDesc, location: zoneLocation });
         backendMessage = res?.message;
       }
       setStatusMsg({
@@ -221,13 +251,13 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     setLoading(true);
     setStatusMsg(null);
     try {
-      if (backendOnline) {
-        const res = await api.testMessageCatalog(catalogCode);
+      if (backendOnline && typeof (api as any).testMessageCatalog === 'function') {
+        const res = await (api as any).testMessageCatalog(catalogCode);
         setCatalogResult(res.resolvedMessage);
       } else {
         const fallback: Record<string, string> = {
-          EMPLOYEE_CREATED: 'El empleado {employeeName} ha sido registrado exitosamente.',
-          SHIFT_ASSIGNED: 'Hola {employeeName}, tienes un nuevo turno asignado para el día {date}.',
+          EMPLOYEE_REGISTER_SUCCESS: 'El empleado {employeeName} ha sido registrado exitosamente.',
+          SHIFT_ASSIGN_SUCCESS: 'Hola {employeeName}, tienes un nuevo turno asignado para el día {date}.',
           RESTRICTION_VIOLATION: 'Alerta: Se detectó una infracción de restricción laboral para {employeeName}.',
         };
         setCatalogResult(fallback[catalogCode] || 'Plantilla no encontrada');
@@ -267,7 +297,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
           </button>
           <button
             type="button"
-            className={`modal-tab-btn ${tab === 'employee' ? 'active' : ''}`}
+            className={`modal-tab-btn ${isEmployeeTab ? 'active' : ''}`}
             onClick={() => { setTab('employee'); setStatusMsg(null); }}
           >
             <UserPlus size={15} />
@@ -320,8 +350,8 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
                   <label className="detail-label">Día del Mes</label>
                   <input
                     type="number"
-                    min={new Date().getDate()}
-                    max={30}
+                    min={1}
+                    max={31}
                     className="form-control"
                     value={shiftDay}
                     onChange={(e) => setShiftDay(Number(e.target.value))}
@@ -392,7 +422,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
             </form>
           )}
 
-          {tab === 'employee' && (
+          {isEmployeeTab && (
             <form onSubmit={handleCreateEmployee} className="modal-form">
               <div className="form-row-2">
                 <div className="form-group">
