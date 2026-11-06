@@ -36,9 +36,6 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   // Catálogo de mensajes (Redis -> Backend -> Frontend)
   const { t } = useMessages();
 
-  // SUPUESTO: el valor de la pestaña de empleados es 'employee'.
-  // Si en types/schedule.ts se llama distinto (p. ej. 'employees'), cámbialo aquí.
-  const EMPLOYEE_TAB = 'employee' as ManagerTab;
   const [tab, setTab] = useState<ManagerTab>(initialTab);
 
   const [statusMsg, setStatusMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -124,7 +121,11 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const isEmployeeTab = tab === EMPLOYEE_TAB;
+  // Validación flexible para reconocer cualquier variante de la pestaña de empleados
+  const isEmployeeTab =
+    tab === 'employee' ||
+    (tab as string) === 'employees' ||
+    (tab as string) === 'new-employee';
 
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,8 +134,6 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     try {
       let backendMessage: string | undefined;
       if (backendOnline) {
-        // SUPUESTO: ajustar al nombre real del método en services/api.ts
-        // (debe hacer POST /employees con { id, name, email })
         const res = await (api as any).createEmployee({
           id: empCode.trim(),
           name: empName.trim(),
@@ -177,7 +176,6 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
 
       let backendMessage: string | undefined;
       if (backendOnline) {
-        // Formato con offset local de Colombia (-05:00)
         const startTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftStart}:00-05:00`;
         const endTime = `${currentYear}-${currentMonth}-${dayStr}T${shiftEnd}:00-05:00`;
 
@@ -212,7 +210,6 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
           `Turno asignado a ${empObj?.name || shiftEmpId} para el ${shiftDay} de ${nombreMes} (${shiftStart} a ${shiftEnd}) en ${shiftZone}${jobObj ? ` [Trabajo: ${jobObj.title}]` : ''}.`,
       });
     } catch (err: any) {
-      // Aquí se muestra el mensaje que viene del backend (catálogo de Redis)
       setStatusMsg({ type: 'err', text: err.message || 'Error al asignar turno' });
     } finally {
       setLoading(false);
