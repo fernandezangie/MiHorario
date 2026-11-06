@@ -26,13 +26,20 @@ interface BackendManagerModalProps {
 
 export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   isOpen,
+  initialTab,
   onClose,
+  onEmployeeCreated,
   onShiftCreated,
   employees,
   backendOnline,
 }) => {
   // Catálogo de mensajes (Redis -> Backend -> Frontend)
   const { t } = useMessages();
+
+  // SUPUESTO: el valor de la pestaña de empleados es 'employee'.
+  // Si en types/schedule.ts se llama distinto (p. ej. 'employees'), cámbialo aquí.
+  const EMPLOYEE_TAB = 'employee' as ManagerTab;
+  const [tab, setTab] = useState<ManagerTab>(initialTab);
 
   const [statusMsg, setStatusMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -52,6 +59,11 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   // Estados para los trabajos (jobs) dinámicos desde la BD
   const [jobsList, setJobsList] = useState<Array<{ id: string; title: string }>>([]);
 
+  // Employee Form (id, name, email; createdAt lo genera la BD)
+  const [empCode, setEmpCode] = useState('');
+  const [empName, setEmpName] = useState('');
+  const [empEmail, setEmpEmail] = useState('');
+
   // Shift Form
   const [shiftEmpId, setShiftEmpId] = useState(employees[0]?.id || 'EMP-1001');
   const [shiftDay, setShiftDay] = useState(getBogotaDay());
@@ -62,6 +74,11 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
 
   useEffect(() => {
     setStatusMsg(null);
+
+    // Al abrir el modal, mostrar la pestaña que pidió el botón
+    if (isOpen) {
+      setTab(initialTab);
+    }
 
     // Cargar catálogos reales del backend al abrir el modal si está online
     const fetchCatalogsFromDb = async () => {
@@ -97,7 +114,7 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
     if (isOpen) {
       fetchCatalogsFromDb();
     }
-  }, [isOpen, backendOnline]);
+  }, [isOpen, backendOnline, initialTab]);
 
   useEffect(() => {
     if (employees.length > 0 && !employees.some((e) => e.id === shiftEmpId)) {
@@ -106,6 +123,47 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
   }, [employees, shiftEmpId]);
 
   if (!isOpen) return null;
+
+  const isEmployeeTab = tab === EMPLOYEE_TAB;
+
+  const handleCreateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatusMsg(null);
+    try {
+      let backendMessage: string | undefined;
+      if (backendOnline) {
+        // SUPUESTO: ajustar al nombre real del método en services/api.ts
+        // (debe hacer POST /employees con { id, name, email })
+        const res = await (api as any).createEmployee({
+          id: empCode.trim(),
+          name: empName.trim(),
+          email: empEmail.trim(),
+        });
+        backendMessage = res?.message;
+      }
+
+      onEmployeeCreated({
+        code: empCode.trim(),
+        name: empName.trim(),
+        email: empEmail.trim(),
+        role: '',
+        department: '',
+      });
+
+      setStatusMsg({
+        type: 'ok',
+        text: backendMessage || `Empleado ${empName.trim()} creado.`,
+      });
+      setEmpCode('');
+      setEmpName('');
+      setEmpEmail('');
+    } catch (err: any) {
+      setStatusMsg({ type: 'err', text: err.message || 'Error al crear empleado' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCreateShift = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,7 +229,9 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
         <div className="modal-header">
           <div className="modal-title-group">
             <span className="badge-pill badge-surcharge">Gestión Operativa</span>
-            <h3 className="modal-title">Asignación de Turnos</h3>
+            <h3 className="modal-title">
+              {isEmployeeTab ? 'Nuevo Empleado' : 'Asignación de Turnos'}
+            </h3>
           </div>
           <button className="modal-close-btn" onClick={onClose}>
             <X size={20} />
@@ -186,96 +246,132 @@ export const BackendManagerModal: React.FC<BackendManagerModalProps> = ({
             </div>
           )}
 
-          <form onSubmit={handleCreateShift} className="modal-form">
-            <div className="form-group">
-              <label className="detail-label">Empleado</label>
-              <select
-                className="form-control"
-                value={shiftEmpId}
-                onChange={(e) => setShiftEmpId(e.target.value)}
-              >
-                {employees.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name} ({e.code} • {e.department})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-row-3">
+          {isEmployeeTab ? (
+            <form onSubmit={handleCreateEmployee} className="modal-form">
               <div className="form-group">
-                <label className="detail-label">Día del Mes</label>
+                <label className="detail-label">ID (ej. COM-207)</label>
                 <input
-                  type="number"
-                  min={1}
-                  max={31}
                   className="form-control"
-                  value={shiftDay}
-                  onChange={(e) => setShiftDay(Number(e.target.value))}
-                />
-              </div>
-              <div className="form-group">
-                <label className="detail-label">Hora de Entrada </label>
-                <input
-                  type="time"
-                  min="06:00"
-                  max="21:00"
-                  className="form-control"
-                  value={shiftStart}
-                  onChange={(e) => setShiftStart(e.target.value)}
+                  value={empCode}
+                  onChange={(e) => setEmpCode(e.target.value)}
                   required
                 />
               </div>
               <div className="form-group">
-                <label className="detail-label">Hora de Salida</label>
+                <label className="detail-label">Nombre</label>
                 <input
-                  type="time"
-                  min="06:00"
-                  max="21:00"
                   className="form-control"
-                  value={shiftEnd}
-                  onChange={(e) => setShiftEnd(e.target.value)}
+                  value={empName}
+                  onChange={(e) => setEmpName(e.target.value)}
                   required
                 />
               </div>
-            </div>
-
-            <div className="form-row-2">
               <div className="form-group">
-                <label className="detail-label">Zona Asignada</label>
+                <label className="detail-label">Correo</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={empEmail}
+                  onChange={(e) => setEmpEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <button type="submit" className="modal-btn-primary" disabled={loading}>
+                {loading ? 'Guardando empleado...' : 'Guardar empleado'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleCreateShift} className="modal-form">
+              <div className="form-group">
+                <label className="detail-label">Empleado</label>
                 <select
                   className="form-control"
-                  value={shiftZone}
-                  onChange={(e) => setShiftZone(e.target.value)}
+                  value={shiftEmpId}
+                  onChange={(e) => setShiftEmpId(e.target.value)}
                 >
-                  {zonesList.map((zone, idx) => (
-                    <option key={idx} value={zone}>
-                      {zone}
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name} ({e.code} • {e.department})
                     </option>
                   ))}
                 </select>
               </div>
-
-              <div className="form-group">
-                <label className="detail-label">Trabajo Asignado</label>
-                <select
-                  className="form-control"
-                  value={shiftJobId}
-                  onChange={(e) => setShiftJobId(e.target.value)}
-                >
-                  <option value="">Selecciona un trabajo...</option>
-                  {jobsList.map((job) => (
-                    <option key={job.id} value={job.id}>
-                      {job.title}
-                    </option>
-                  ))}
-                </select>
+              <div className="form-row-3">
+                <div className="form-group">
+                  <label className="detail-label">Día del Mes</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    className="form-control"
+                    value={shiftDay}
+                    onChange={(e) => setShiftDay(Number(e.target.value))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="detail-label">Hora de Entrada </label>
+                  <input
+                    type="time"
+                    min="06:00"
+                    max="21:00"
+                    className="form-control"
+                    value={shiftStart}
+                    onChange={(e) => setShiftStart(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="detail-label">Hora de Salida</label>
+                  <input
+                    type="time"
+                    min="06:00"
+                    max="21:00"
+                    className="form-control"
+                    value={shiftEnd}
+                    onChange={(e) => setShiftEnd(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            <button type="submit" className="modal-btn-primary" disabled={loading}>
-              {loading ? 'Guardando turno...' : 'Guardar y enviar turno'}
-            </button>
-          </form>
+              <div className="form-row-2">
+                <div className="form-group">
+                  <label className="detail-label">Zona Asignada</label>
+                  <select
+                    className="form-control"
+                    value={shiftZone}
+                    onChange={(e) => setShiftZone(e.target.value)}
+                  >
+                    {zonesList.map((zone, idx) => (
+                      <option key={idx} value={zone}>
+                        {zone}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="detail-label">Trabajo Asignado</label>
+                  <select
+                    className="form-control"
+                    value={shiftJobId}
+                    onChange={(e) => setShiftJobId(e.target.value)}
+                  >
+                    <option value="">Selecciona un trabajo...</option>
+                    {jobsList.map((job) => (
+                      <option key={job.id} value={job.id}>
+                        {job.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button type="submit" className="modal-btn-primary" disabled={loading}>
+                {loading ? 'Guardando turno...' : 'Guardar y enviar turno'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
