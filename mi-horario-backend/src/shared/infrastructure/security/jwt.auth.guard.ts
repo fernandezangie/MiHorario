@@ -1,6 +1,7 @@
 import {
   ExecutionContext,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -10,6 +11,8 @@ import { MessageCatalogService } from '@shared/infrastructure/messaging/message.
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
+  private readonly logger = new Logger(JwtAuthGuard.name);
+
   constructor(
     private readonly reflector: Reflector,
     private readonly messageCatalogService: MessageCatalogService,
@@ -28,12 +31,12 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return true;
     }
 
-    // 2. Ejecutar la validación de Passport-JWT (JwtStrategy contra Keycloak JWKS)
+    // 2. Ejecutar la validación de Passport-JWT (JwtStrategy)
     try {
       const result = (await super.canActivate(context)) as boolean;
       return result;
     } catch (err) {
-      // 3. Si STRICT_AUTH está activo o falla la firma/expiración, lanzar excepción con mensaje de Redis
+      // 3. Si STRICT_AUTH está activo, lanzar excepción con mensaje de Redis
       if (process.env.STRICT_AUTH === 'true') {
         const errorMessage = await this.messageCatalogService.getMessage(
           'AUTH_BEARER_REQUIRED',
@@ -48,6 +51,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   // Se ejecuta cuando Passport termina de procesar el token
   handleRequest(err: any, user: any, info: any) {
     if (err || !user) {
+      const reason =
+        err?.message || info?.message || info?.name || 'sin detalle';
+      this.logger.warn(`Autenticación rechazada: ${reason}`);
       throw err || new UnauthorizedException('Token inválido o expirado');
     }
     return user;
